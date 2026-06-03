@@ -67,6 +67,10 @@ A list of testing decisions that were made. Include:
 
 A description of the things that are out of scope for this PRD.
 
+## Future Feature Requests
+
+A section that lists all the items from the rest of the PRD that should be handled in separate feature requests.
+
 ## Further Notes
 
 Any further notes about the feature.
