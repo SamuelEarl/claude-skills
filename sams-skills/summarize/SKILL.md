@@ -16,13 +16,14 @@ Save the summary to the file path the user provided as an argument. If no path w
 
 Include:
 
-1. **Goal** — what the session set out to accomplish
-2. **Decisions made** — what was decided and why, including alternatives that were considered and rejected
-3. **Current state** — what was built, changed, or configured so far
-4. **Open questions** — unresolved issues that need answers
-5. **Next steps** — what the next session should pick up
-6. **Suggested skills** — skills the next session should invoke
-7. **References** — paths or URLs to artifacts produced (PRDs, plans, ADRs, issues, commits, diffs)
+1. **Session date** — the date this session took place, formatted as "Session Date: DD MMM YYYY" (e.g., "Session Date: 04 Jun 2026") at the top of the file
+2. **Goal** — what the session set out to accomplish
+3. **Decisions made** — what was decided and why, including alternatives that were considered and rejected
+4. **Current state** — what was built, changed, or configured so far
+5. **Open questions** — unresolved issues that need answers
+6. **Next steps** — what the next session should pick up
+7. **Suggested skills** — skills the next session should invoke
+8. **References** — paths or URLs to artifacts produced (PRDs, plans, ADRs, issues, commits, diffs)
 
 ## Rules
 

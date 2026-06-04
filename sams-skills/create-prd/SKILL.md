@@ -1,9 +1,14 @@
 ---
-name: to-prd
-description: Turn the current conversation context into a PRD and publish it to the project issue tracker. Use when user wants to create a PRD from the current context.
+name: create-prd
+description: Turn the current conversation context into a PRD and publish it to the project issue tracker. Creates GitHub issues with "enhancement" label for future feature enhancements. Requires a GRILL_WITH_DOCS_SUMMARY.md file. Use when user wants to create a PRD from the current context.
+argument-hint: path/to/GRILL_WITH_DOCS_SUMMARY.md
 ---
 
-This skill takes the current conversation context and codebase understanding and produces a PRD. Do NOT interview the user — just synthesize what you already know.
+This skill takes a GRILL_WITH_DOCS_SUMMARY.md file, the current conversation context, and codebase understanding and produces a PRD. Do NOT interview the user — just synthesize what you already know.
+
+## Input
+
+The user must provide a path to a GRILL_WITH_DOCS_SUMMARY.md file as an argument. If no path is provided, ask the user for it. This file should contain the grilling session summary that informs the PRD.
 
 The issue tracker and triage label vocabulary should have been provided to you — run `/setup-matt-pocock-skills` if not.
 
@@ -15,7 +20,12 @@ The issue tracker and triage label vocabulary should have been provided to you �
 
 Check with the user that these seams match their expectations.
 
-3. Write the PRD using the template below, then publish it to the project issue tracker. Apply the `ready-for-agent` triage label - no need for additional triage.
+3. Write the PRD using the template below, then publish it to the project issue tracker. Apply the `ready-for-implementation` triage label - no need for additional triage.
+
+4. Identify all items from the conversation and PRD context that should be handled as future feature enhancements (items that are related but out of scope for the current PRD). For each future feature enhancements:
+   - Create a GitHub issue with a clear title and description
+   - Apply the `enhancement` label
+   - Reference the main PRD issue in the description for traceability
 
 <prd-template>
 
