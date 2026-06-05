@@ -162,7 +162,9 @@ Files changed during implementation:
 - `path/to/file3.ts` - Updated to integrate with X
 ```
 
-2. **Apply the `quality-assurance` label** to the issue using `gh issue edit <issue-number> --add-label "quality-assurance"`
+2. **Update labels** on the issue:
+   - Remove the `ready-for-implementation` label: `gh issue edit <issue-number> --remove-label "ready-for-implementation"`
+   - Add the `quality-assurance` label: `gh issue edit <issue-number> --add-label "quality-assurance"`
 
 3. **Inform the user**: "Implementation complete. The issue has been documented and labeled for QA. You can now run `/qa <issue-link>` to perform quality assurance."
 
