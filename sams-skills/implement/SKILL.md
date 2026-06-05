@@ -147,6 +147,24 @@ Walk through each acceptance criterion from the issue and confirm it's covered:
 
 Report any criteria that couldn't be fully met and why.
 
+### 6. GitHub issue next steps
+
+Ask the user what they would like to do with the GitHub issue now that implementation is complete. Present options and recommendations:
+
+**Options:**
+- **Close the issue as complete** — Mark the issue as done (recommended if all acceptance criteria met)
+- **Update issue with implementation notes** — Document any important decisions or deviations before closing
+- **Create follow-up issues** — Identify any out-of-scope improvements or technical debt to track separately
+- **Keep issue open** — If waiting for review, deployment, or user validation
+
+**Recommended approach:**
+- If all acceptance criteria were met with no surprises: Close as complete
+- If implementation revealed complexity or shortcuts: Update with notes, then close
+- If you discovered related work that's out of scope: Create follow-up issues, then close this one
+- If blocked on external validation: Keep open and update status
+
+Ask: "All acceptance criteria are verified. What would you like to do with the GitHub issue?"
+
 ## Checklist Per Cycle
 
 ```
