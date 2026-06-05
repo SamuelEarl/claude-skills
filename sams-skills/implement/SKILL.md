@@ -1,7 +1,7 @@
 ---
 name: implement
-description: Implement a single issue using test-driven development. Reads an issue file (from /to-issues or similar), extracts what to build and acceptance criteria, then drives a red-green-refactor loop scoped to that issue. Use when user wants to implement an issue, build a feature from a ticket, or TDD a specific issue file.
-argument-hint: path/to/issues/001-issue-title.md
+description: Implement a single issue using test-driven development. Requires a GitHub issue link as input, extracts what to build and acceptance criteria, then drives a red-green-refactor loop scoped to that issue. Use when user wants to implement an issue, build a feature from a ticket, or TDD a specific issue.
+argument-hint: <GitHub-issue-link>
 ---
 
 # Implement
@@ -10,15 +10,21 @@ Implement a single issue using TDD.
 
 ## Input
 
-Read the issue file the user provided as an argument. If no path was provided, ask for one.
+The user must provide a GitHub issue link as an argument. If no link is provided, ask the user for it with these instructions:
 
-Extract:
+**How to find the issue link:**
+1. Open the issue in GitHub
+2. Click the "Issue body actions" button at the top of the issue (i.e. the three dots at the top of the issue)
+3. Select "Copy link"
+4. Paste that link here
+
+Fetch the issue from GitHub and extract:
 
 - **What to build** — the scope of this issue
 - **Acceptance criteria** — these become the behaviors to test
 - **Blocked by** — if blockers exist, check they've been completed before proceeding
 
-If the issue file references a parent issue or related context, read those too.
+If the issue references a parent issue or related context, read those too.
 
 ## TDD Philosophy
 
