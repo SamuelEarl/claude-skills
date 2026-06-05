@@ -61,6 +61,24 @@ RIGHT (vertical):
   ...
 ```
 
+## When You Encounter Errors
+
+**STOP. DO NOT push through with trial and error.**
+
+When tests fail unexpectedly or you encounter errors during implementation:
+
+1. **Stop coding immediately** — Don't attempt fixes based on guesses
+2. **Research thoroughly** — Understand the root cause before proceeding:
+   - Read relevant documentation
+   - Search the codebase for similar patterns
+   - Check error messages carefully for hints
+   - Look up unfamiliar APIs or frameworks
+   - Review the project's conventions and patterns
+3. **Learn what to do** — Form a clear understanding of the correct approach
+4. **Then proceed** — Only write code once you understand the solution
+
+**Why this matters**: Trial and error wastes time, introduces bugs, and creates technical debt. Five minutes of research often saves an hour of debugging. If you're guessing, you're not learning.
+
 ## Workflow
 
 ### 1. Planning
