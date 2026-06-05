@@ -147,23 +147,24 @@ Walk through each acceptance criterion from the issue and confirm it's covered:
 
 Report any criteria that couldn't be fully met and why.
 
-### 6. GitHub issue next steps
+### 6. Document changes and prepare for QA
 
-Ask the user what they would like to do with the GitHub issue now that implementation is complete. Present options and recommendations:
+Update the GitHub issue to prepare for quality assurance:
 
-**Options:**
-- **Close the issue as complete** — Mark the issue as done (recommended if all acceptance criteria met)
-- **Update issue with implementation notes** — Document any important decisions or deviations before closing
-- **Create follow-up issues** — Identify any out-of-scope improvements or technical debt to track separately
-- **Keep issue open** — If waiting for review, deployment, or user validation
+1. **Add "Agent QA" section** to the issue body with a list of all files that were added or modified during implementation:
 
-**Recommended approach:**
-- If all acceptance criteria were met with no surprises: Close as complete
-- If implementation revealed complexity or shortcuts: Update with notes, then close
-- If you discovered related work that's out of scope: Create follow-up issues, then close this one
-- If blocked on external validation: Keep open and update status
+```markdown
+## Agent QA
 
-Ask: "All acceptance criteria are verified. What would you like to do with the GitHub issue?"
+Files changed during implementation:
+- `path/to/file1.ts` - Added new module for X
+- `path/to/file2.test.ts` - Tests for X
+- `path/to/file3.ts` - Updated to integrate with X
+```
+
+2. **Apply the `quality-assurance` label** to the issue using `gh issue edit <issue-number> --add-label "quality-assurance"`
+
+3. **Inform the user**: "Implementation complete. The issue has been documented and labeled for QA. You can now run `/qa <issue-link>` to perform quality assurance."
 
 ## Checklist Per Cycle
 
