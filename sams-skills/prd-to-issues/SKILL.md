@@ -95,4 +95,14 @@ Or "None - can start immediately" if no blockers.
 
 </issue-template>
 
-Do NOT close or modify the parent PRD issue.
+### 6. Update the parent PRD issue
+
+After all issues are created, update the parent PRD issue to reflect that implementation is underway:
+
+1. **Update labels**:
+   - Remove `ready-to-create-issues`: `gh issue edit <prd-issue-number> --remove-label "ready-to-create-issues"`
+   - Add `in-progress`: `gh issue edit <prd-issue-number> --add-label "in-progress"`
+
+2. **Move to "In progress" column**: `gh project item-edit --id $(gh issue view <prd-issue-number> --json projectItems --jq '.projectItems[0].id') --project-id 5 --field-id $(gh project field-list --owner SamuelEarl --project 5 --format json | jq -r '.fields[] | select(.name=="Status") | .id') --text "In progress"`
+
+Do NOT close the parent PRD issue.
