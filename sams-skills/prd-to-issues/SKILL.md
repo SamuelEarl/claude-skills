@@ -62,7 +62,11 @@ Iterate until the user approves the breakdown.
 
 ### 5. Publish the issues to the issue tracker
 
-For each approved slice, publish a new issue to the issue tracker with the `ready-for-implementation` triage label. Use the issue body template below.
+For each approved slice, publish a new issue to the issue tracker with the `ready-for-implementation` label, then move to the project board:
+
+1. Create the issue using the template below
+2. Add label: `gh issue edit <issue-number> --add-label "ready-for-implementation"`
+3. Move to "Ready" column: `gh project item-edit --id $(gh issue view <issue-number> --json projectItems --jq '.projectItems[0].id') --project-id 5 --field-id $(gh project field-list --owner SamuelEarl --project 5 --format json | jq -r '.fields[] | select(.name=="Status") | .id') --text "Ready"`
 
 Publish issues in dependency order (blockers first) so you can reference real issue identifiers in the "Blocked by" field.
 

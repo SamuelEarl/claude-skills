@@ -176,7 +176,10 @@ Ask the user what they would like to do with the GitHub issue now that QA is com
 **Options:**
 - **Proceed with Human QA** — Use the Human QA Plan to manually test (recommended if no critical issues)
 - **Fix agent-identified issues first** — Address code review findings before human QA (recommended if critical issues found)
-- **Close the issue as complete** — Skip human QA and mark as done (only if very confident)
+- **Close the issue as complete** — Skip human QA and mark as done (only if very confident):
+  1. Remove `in-review` label: `gh issue edit <issue-number> --remove-label "in-review"`
+  2. Move to "Done" column: `gh project item-edit --id $(gh issue view <issue-number> --json projectItems --jq '.projectItems[0].id') --project-id 5 --field-id $(gh project field-list --owner SamuelEarl --project 5 --format json | jq -r '.fields[] | select(.name=="Status") | .id') --text "Done"`
+  3. Close issue: `gh issue close <issue-number>`
 - **Create follow-up issues** — Split QA findings or human QA into separate issues
 - **Request peer review** — Get another developer to review before proceeding
 
@@ -187,7 +190,9 @@ Ask the user what they would like to do with the GitHub issue now that QA is com
 - If human QA reveals new issues: Create follow-up issues for those
 - After successful human QA: 
   - Create follow-up issues for any remaining Medium/Low findings (if worth addressing)
-  - Close the main issue as complete
+  - Remove `in-review` label: `gh issue edit <issue-number> --remove-label "in-review"`
+  - Move to "Done" column: `gh project item-edit --id $(gh issue view <issue-number> --json projectItems --jq '.projectItems[0].id') --project-id 5 --field-id $(gh project field-list --owner SamuelEarl --project 5 --format json | jq -r '.fields[] | select(.name=="Status") | .id') --text "Done"`
+  - Close the issue: `gh issue close <issue-number>`
 
 Ask: "Agent QA complete and Human QA Plan added to the issue. What would you like to do next?"
 

@@ -20,7 +20,9 @@ The issue tracker and triage label vocabulary should have been provided to you â
 
 Check with the user that these seams match their expectations.
 
-3. Write the PRD using the template below, then publish it to the project issue tracker. Apply the `ready-to-create-issues` triage label - no need for additional triage.
+3. Write the PRD using the template below, then publish it to the project issue tracker. Apply the `ready-to-create-issues` and `prd` labels, then move to the project board:
+   - Add labels: `gh issue edit <issue-number> --add-label "ready-to-create-issues,prd"`
+   - Move to "Ready" column: `gh project item-edit --id $(gh issue view <issue-number> --json projectItems --jq '.projectItems[0].id') --project-id 5 --field-id $(gh project field-list --owner SamuelEarl --project 5 --format json | jq -r '.fields[] | select(.name=="Status") | .id') --text "Ready"`
 
 4. Identify all items from the conversation and PRD context that should be handled as future feature enhancements (items that are related but out of scope for the current PRD). For each future feature enhancements:
    - Create a GitHub issue with a clear title and description
