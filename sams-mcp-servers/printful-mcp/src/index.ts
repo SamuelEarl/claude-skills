@@ -1,70 +1,33 @@
 #!/usr/bin/env node
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import "dotenv/config";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-  ErrorCode,
-  McpError,
-} from "@modelcontextprotocol/sdk/types.js";
-import { z } from "zod";
 import { PrintfulClient } from "./client.js";
-import { tools } from "./tools.js";
-
-const server = new Server(
-  { name: "printful-mcp", version: "1.0.0" },
-  { capabilities: { tools: {} } }
-);
-
-const token = process.env.PRINTFUL_TOKEN;
-const storeId = process.env.PRINTFUL_STORE_ID;
-
-if (!token) {
-  console.error("Error: PRINTFUL_TOKEN environment variable is required");
-  process.exit(1);
-}
-
-const client = new PrintfulClient(token, storeId);
-
-server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: tools.map(({ name, description, inputSchema }) => ({
-    name,
-    description,
-    inputSchema,
-  })),
-}));
-
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  const tool = tools.find((t) => t.name === request.params.name);
-
-  if (!tool) {
-    throw new McpError(
-      ErrorCode.MethodNotFound,
-      `Unknown tool: ${request.params.name}`
-    );
-  }
-
-  try {
-    const result = await tool.handler(client, request.params.arguments ?? {});
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    return {
-      content: [{ type: "text", text: `Error: ${message}` }],
-      isError: true,
-    };
-  }
-});
+import { registerTools } from "./tools.js";
 
 async function main() {
+  const token = process.env.PRINTFUL_API_TOKEN;
+  if (!token) {
+    console.error(
+      "Error: PRINTFUL_API_TOKEN environment variable is required.",
+    );
+    process.exit(1);
+  }
+
+  const client = new PrintfulClient(token);
+
+  const server = new McpServer({
+    name: "printful-mcp",
+    version: "0.1.0",
+  });
+
+  registerTools(server, client);
+
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("Printful MCP server running on stdio");
 }
 
 main().catch((err) => {
-  console.error("Fatal error:", err);
+  console.error("Fatal error starting printful-mcp:", err);
   process.exit(1);
 });

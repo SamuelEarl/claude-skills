@@ -1,192 +1,156 @@
-# Printful MCP Server
+# printful-mcp
 
-An MCP (Model Context Protocol) server that gives Claude direct access to the Printful 2.0 API — so you can ask Claude to look up products, create orders, generate mockups, calculate shipping rates, and more, all during a development session.
+A **Model Context Protocol (MCP) server** that lets Claude (and other MCP-compatible AI clients) read data from your Printful store: products, orders, the global catalog, and store info.
 
----
-
-## What it does
-
-Claude gains tools to:
-- Browse the Printful product catalog (products, variants, pricing, stock, size guides)
-- Create, confirm, estimate, and track orders
-- Upload design files and generate product mockups (async)
-- Calculate shipping rates
-- Configure webhooks
-- Inspect store info
+This server is **read-only** by design. See [`ENHANCEMENTS.md`](./ENHANCEMENTS.md) for the plan to add write operations (creating orders, updating products) in a future version.
 
 ---
 
-## Installation
+## What is an MCP server?
 
-### Option A — Inside a Next.js / monorepo project (recommended)
+**MCP** stands for **Model Context Protocol** — an open standard introduced by Anthropic in late 2024 for connecting AI assistants (like Claude) to external tools, data sources, and services.
 
-Place the server inside your project so it lives alongside your store code:
+### The problem it solves
 
-```
-your-store/
-├── src/               ← your storefront
-├── printful-mcp/      ← MCP server lives here
-│   ├── src/
-│   │   ├── index.ts
-│   │   ├── client.ts
-│   │   └── tools.ts
-│   ├── package.json
-│   └── tsconfig.json
-├── package.json
-└── .env
-```
+Before MCP, every AI app that wanted to talk to (say) GitHub, a database, or Slack needed a custom integration. Each tool needed bespoke glue code. MCP standardizes this — write the integration **once** as an MCP server, and any MCP-compatible client (Claude Desktop, Claude Code, Cursor, etc.) can use it.
 
-From the `printful-mcp/` directory:
-```bash
-npm install
-npm run build
-```
+Think of it like **USB for AI tools**: one protocol, many devices.
 
-### Option B — Standalone (global install)
+### What an MCP server does
 
-```bash
-cd printful-mcp
-npm install
-npm run build
-npm link        # makes `printful-mcp` available globally
-```
+An MCP server exposes some combination of:
+
+| Primitive | What it is | Printful example |
+|-----------|-----------|------------------|
+| **Tools** | Functions the AI can call | `get_orders`, `create_order`, `list_products` |
+| **Resources** | Read-only data the AI can fetch | A product catalog, an order's details |
+| **Prompts** | Reusable prompt templates | "Draft a shipping delay email for order X" |
+
+The server speaks the MCP protocol (JSON-RPC over stdio or HTTP). The client (Claude) discovers what the server offers and calls into it as needed during a conversation.
+
+### What this Printful MCP server lets you do
+
+Once connected to Claude, you can ask things like:
+
+- *"What orders shipped this week?"*
+- *"Which of my store products are unsynced?"*
+- *"Show me the variants for catalog product 71."*
+- *"Get the shipping cost on order 12345."*
+
+Claude calls this MCP server, which calls the Printful API, and returns the result inline.
 
 ---
 
-## Configuration
+## Tools exposed
+
+| Tool | Purpose |
+|---|---|
+| `get_store_info` | Metadata for the connected store (name, ID, currency) |
+| `list_store_products` | List sync products in your store (with pagination + status filter) |
+| `get_store_product` | Full details + variants for one sync product |
+| `list_catalog_products` | Browse Printful's global catalog (optionally by category) |
+| `get_catalog_product` | Full details + variants for a catalog product |
+| `list_orders` | List orders (with status filter + pagination) |
+| `get_order` | Full details for a single order |
+
+---
+
+## Setup
 
 ### 1. Get a Printful API token
 
-1. Go to https://developers.printful.com/tokens
-2. Click **Create token**
-3. Select scopes you need (at minimum: `orders`, `file_library`, `webhooks`)
-4. Set an expiry date
-5. Copy the token — it won't be shown again
+1. Log in at [printful.com](https://www.printful.com).
+2. Go to your dashboard → **Stores** → select a store → **API**, **or** visit the [Printful Developer Portal](https://developers.printful.com/) and create a private token for your store.
+3. Copy the token. You'll set it as `PRINTFUL_API_TOKEN` below.
 
-### 2. Set environment variables
+### 2. Install and build
 
-Add to your project's `.env` file:
-```env
-PRINTFUL_TOKEN=your_private_token_here
-
-# Only needed if using an account-level token with multiple stores:
-# PRINTFUL_STORE_ID=12345678
+```bash
+cd sams-mcp-servers/printful-mcp
+npm install
+npm run build
 ```
 
-> ⚠️ Never commit your `.env` file. Ensure `.env` is in your `.gitignore`.
+### 3. Configure your token
 
----
+Copy the example env file and fill in your token:
 
-## Connecting to Claude
+```bash
+cp .env.example .env
+# then edit .env and set PRINTFUL_API_TOKEN=...
+```
 
-### Claude Desktop App
+`.env` is gitignored. It's used when you run the server directly (`npm run dev`, `node dist/index.js`) for local testing.
 
-Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
+> **Note:** When the server is launched by Claude Desktop or Claude Code, those clients pass env vars through their own config (the `"env"` block below) — they do **not** read your `.env`. The `.env` is for local development.
+
+### 4. Connect to Claude
+
+Add an entry to your MCP client config. For **Claude Desktop** (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, or the equivalent on your OS):
 
 ```json
 {
   "mcpServers": {
     "printful": {
       "command": "node",
-      "args": ["/absolute/path/to/your-store/printful-mcp/build/index.js"],
+      "args": ["/absolute/path/to/sams-mcp-servers/printful-mcp/dist/index.js"],
       "env": {
-        "PRINTFUL_TOKEN": "your_token_here"
+        "PRINTFUL_API_TOKEN": "your_token_here"
       }
     }
   }
 }
 ```
 
-**Or** if your `.env` is already set and you have `dotenv-cli` installed:
-```json
-{
-  "mcpServers": {
-    "printful": {
-      "command": "npx",
-      "args": ["dotenv", "-e", "/path/to/your-store/.env", "--", "node", "/path/to/printful-mcp/build/index.js"]
-    }
-  }
-}
+For **Claude Code**, register the server with:
+
+```bash
+claude mcp add printful \
+  --env PRINTFUL_API_TOKEN=your_token_here \
+  -- node /absolute/path/to/sams-mcp-servers/printful-mcp/dist/index.js
 ```
 
-Restart Claude Desktop after editing this file.
-
-### Claude Code
-
-Add to your project's `.mcp.json` (creates one if it doesn't exist):
-```json
-{
-  "mcpServers": {
-    "printful": {
-      "command": "node",
-      "args": ["./printful-mcp/build/index.js"],
-      "env": {
-        "PRINTFUL_TOKEN": "${PRINTFUL_TOKEN}"
-      }
-    }
-  }
-}
-```
-
-Claude Code reads `PRINTFUL_TOKEN` from your shell environment or `.env` automatically.
-
----
-
-## Verifying it works
-
-Once connected, ask Claude:
-> "Use the Printful MCP to list the first 5 catalog products"
-
-Or:
-> "What Printful tools do you have available?"
-
----
-
-## Available Tools
-
-| Tool | What it does |
-|---|---|
-| `list_catalog_products` | Browse all Printful products (with filters) |
-| `get_catalog_product` | Get a single product's details |
-| `get_product_variants` | Get all sizes/colors for a product |
-| `get_product_prices` | Get pricing including subscriber discounts |
-| `get_product_stock` | Check stock by region |
-| `get_product_size_guide` | Get size tables |
-| `get_mockup_templates` | List available mockup placements |
-| `list_orders` | List store orders |
-| `get_order` | Get a specific order |
-| `create_order` | Create a new draft order |
-| `confirm_order` | Confirm draft → triggers fulfillment |
-| `cancel_order` | Cancel/delete a draft order |
-| `estimate_order_cost` | Async cost estimation (returns task ID) |
-| `get_order_estimation` | Poll estimation task result |
-| `get_order_shipments` | Get tracking info |
-| `upload_file` | Upload a design to the file library |
-| `get_file` | Get a file from the library |
-| `create_mockup_task` | Start async mockup generation |
-| `get_mockup_result` | Poll mockup task result |
-| `calculate_shipping_rates` | Get available shipping rates |
-| `get_store_info` | Get store details |
-| `get_webhook_config` | Get webhook settings |
-| `set_webhook` | Configure a webhook endpoint |
+Restart your client and the `printful` tools will appear.
 
 ---
 
 ## Development
 
 ```bash
-# Watch mode — recompile on save
-npx tsc --watch
+npm run dev        # run from source with tsx (no build step)
+npm run typecheck  # verify types without emitting
+npm run build      # compile to dist/
+```
 
-# Test the server directly (check it starts without errors)
-PRINTFUL_TOKEN=your_token node build/index.js
+The server uses stdio transport — it reads JSON-RPC on stdin and writes responses on stdout. Anything written to `stderr` is for logging only and won't interfere with the protocol.
+
+### Testing manually
+
+You can drive the server by hand for quick sanity checks:
+
+```bash
+PRINTFUL_API_TOKEN=xxx npm run dev
+```
+
+…then paste a JSON-RPC `initialize` message followed by `tools/list`. For richer interactive testing, use the [MCP Inspector](https://github.com/modelcontextprotocol/inspector):
+
+```bash
+npx @modelcontextprotocol/inspector node dist/index.js
 ```
 
 ---
 
-## Notes
+## Project layout
 
-- Orders created via `create_order` are **drafts** — they won't be charged or fulfilled until you call `confirm_order`
-- Mockup generation and order estimation are **async** — create the task, then poll for results
-- This server uses Printful **API v2**. Sync products (v1 only) are not included
-- Rate limit: 120 requests/minute. The server surfaces rate limit errors — handle them in your store code
+```
+src/
+├── index.ts     # entry point: reads env, wires up server + transport
+├── client.ts    # thin wrapper around Printful's REST API
+└── tools.ts     # MCP tool registrations (schemas + handlers)
+```
+
+---
+
+## License
+
+MIT

@@ -1,26 +1,12 @@
+const BASE_URL = "https://api.printful.com";
+
+type QueryParams = Record<string, string | number | undefined>;
+
 export class PrintfulClient {
-  private readonly baseUrl = "https://api.printful.com";
-  private readonly token: string;
-  private readonly storeId?: string;
+  constructor(private readonly token: string) {}
 
-  constructor(token: string, storeId?: string) {
-    this.token = token;
-    this.storeId = storeId;
-  }
-
-  private buildHeaders(): Record<string, string> {
-    const headers: Record<string, string> = {
-      Authorization: `Bearer ${this.token}`,
-      "Content-Type": "application/json",
-    };
-    if (this.storeId) {
-      headers["X-PF-Store-Id"] = this.storeId;
-    }
-    return headers;
-  }
-
-  async get<T>(path: string, params?: Record<string, string | number>): Promise<T> {
-    const url = new URL(`${this.baseUrl}${path}`);
+  private async request<T>(path: string, params?: QueryParams): Promise<T> {
+    const url = new URL(BASE_URL + path);
     if (params) {
       for (const [key, value] of Object.entries(params)) {
         if (value !== undefined && value !== null) {
@@ -28,54 +14,54 @@ export class PrintfulClient {
         }
       }
     }
-    const res = await fetch(url.toString(), {
-      method: "GET",
-      headers: this.buildHeaders(),
-    });
-    return this.handleResponse<T>(res);
-  }
 
-  async post<T>(path: string, body?: unknown): Promise<T> {
-    const res = await fetch(`${this.baseUrl}${path}`, {
-      method: "POST",
-      headers: this.buildHeaders(),
-      body: body ? JSON.stringify(body) : undefined,
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${this.token}`,
+        "Content-Type": "application/json",
+      },
     });
-    return this.handleResponse<T>(res);
-  }
 
-  async patch<T>(path: string, body?: unknown): Promise<T> {
-    const res = await fetch(`${this.baseUrl}${path}`, {
-      method: "PATCH",
-      headers: this.buildHeaders(),
-      body: body ? JSON.stringify(body) : undefined,
-    });
-    return this.handleResponse<T>(res);
-  }
-
-  async delete<T>(path: string): Promise<T> {
-    const res = await fetch(`${this.baseUrl}${path}`, {
-      method: "DELETE",
-      headers: this.buildHeaders(),
-    });
-    return this.handleResponse<T>(res);
-  }
-
-  private async handleResponse<T>(res: Response): Promise<T> {
-    const text = await res.text();
-    let data: unknown;
-    try {
-      data = JSON.parse(text);
-    } catch {
-      throw new Error(`HTTP ${res.status}: ${text}`);
+    const body = await response.text();
+    if (!response.ok) {
+      throw new Error(
+        `Printful API ${response.status} ${response.statusText}: ${body}`,
+      );
     }
 
-    if (!res.ok) {
-      const err = data as Record<string, unknown>;
-      const detail = err.detail ?? err.result ?? err.error ?? text;
-      throw new Error(`HTTP ${res.status}: ${JSON.stringify(detail)}`);
-    }
+    const parsed = JSON.parse(body) as { result: T; code?: number };
+    return parsed.result;
+  }
 
-    return data as T;
+  getStoreInfo() {
+    return this.request<unknown>("/store");
+  }
+
+  listStoreProducts(params?: { offset?: number; limit?: number; status?: string }) {
+    return this.request<unknown>("/store/products", params);
+  }
+
+  getStoreProduct(id: number | string) {
+    return this.request<unknown>(`/store/products/${id}`);
+  }
+
+  listCatalogProducts(params?: { category_id?: number }) {
+    return this.request<unknown>("/products", params);
+  }
+
+  getCatalogProduct(id: number | string) {
+    return this.request<unknown>(`/products/${id}`);
+  }
+
+  listOrders(params?: {
+    status?: string;
+    offset?: number;
+    limit?: number;
+  }) {
+    return this.request<unknown>("/orders", params);
+  }
+
+  getOrder(id: number | string) {
+    return this.request<unknown>(`/orders/${id}`);
   }
 }

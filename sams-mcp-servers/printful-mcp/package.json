@@ -1,25 +1,31 @@
 {
   "name": "printful-mcp",
-  "version": "1.0.0",
-  "description": "",
-  "main": "build/index.js",
+  "version": "0.1.0",
+  "description": "Model Context Protocol server for the Printful API (read-only)",
+  "type": "module",
+  "bin": {
+    "printful-mcp": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc",
-    "start": "node build/index.js"
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
-    "zod": "^4.4.3"
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "dotenv": "^16.4.5",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@types/node": "^25.9.1",
-    "typescript": "^6.0.3"
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
   },
-  "bin": {
-    "printful-mcp": "build/index.js"
-  },
-  "type": "module"
+  "engines": {
+    "node": ">=18"
+  }
 }
