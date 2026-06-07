@@ -22,13 +22,15 @@ The issue must have an "Agent QA" section that lists the files changed during im
 
 ## Process
 
-### 1. Fetch and parse the issue
+### Phase 1: Initial Agent QA
+
+#### 1. Fetch and parse the issue
 
 Fetch the GitHub issue and locate the "Agent QA" section. Extract the list of files that were changed during implementation.
 
 If the "Agent QA" section is missing, inform the user that this issue was not prepared for QA (it needs to go through the `/implement` workflow first).
 
-### 2. Perform agent code review
+#### 2. Perform agent code review (initial round)
 
 Review each file listed in the "Agent QA" section. Focus on:
 
@@ -69,9 +71,105 @@ For each issue found, note:
 - Description of the issue
 - Suggested fix (if straightforward)
 
-### 3. Create Human QA Plan
+#### 3. Report findings
 
-Generate a detailed, step-by-step Human QA Plan that a human can follow to thoroughly test the implemented changes. Add this as a new section to the GitHub issue.
+Display all findings organized by severity:
+
+**Critical/High Severity Issues:**
+Print to terminal with:
+- File and location
+- Description of the issue
+- Why it's critical/high severity
+- Suggested fix
+
+**Medium/Low Severity Issues:**
+Print to terminal with:
+- File and location
+- Description of the issue
+- Suggested fix (if straightforward)
+
+**If no issues found:**
+Report that agent code review passed with no issues.
+
+### Phase 2: Agent QA Iteration Loop
+
+#### 4. Ask what to do next
+
+Present options based on findings:
+
+```
+Agent QA round complete. What would you like to do?
+
+Options:
+- Fix agent-identified issues [only show if any issues found]
+- Re-run agent QA [if user fixed issues outside this session]
+- Proceed with Human QA Plan [recommended if no critical issues remain]
+- Close the issue as complete [only if confident no QA needed]
+```
+
+**Recommendations to include:**
+- If critical/high severity issues found: Recommend "Fix agent-identified issues" first
+- If only medium/low issues: Recommend "Proceed with Human QA Plan"
+- If no issues: Recommend "Proceed with Human QA Plan"
+
+Wait for user selection and proceed to the corresponding step.
+
+#### 5. Fix agent-identified issues (if selected)
+
+1. Ask which issues to fix:
+   - **Fix all** — Address all findings in this session
+   - **Fix critical/high only** — Address only critical/high severity issues
+   - **Select specific issues** — User picks which ones to fix
+
+2. Fix the selected issues
+
+3. Run another agent code review on the changed files (or all files if user requests)
+
+4. Report new findings
+
+5. **Check context window** (see step 6)
+
+6. Return to step 4 (ask what to do next)
+
+#### 6. Context window monitoring
+
+After each QA round (review or fix), check the approximate token count:
+
+- If context window is approaching **~100k tokens**, ask:
+  ```
+  Context window is at ~100k tokens. Would you like to run the `/compact` command to condense the conversation?
+  
+  Options:
+  - Run /compact now [recommended to prevent context overflow]
+  - Continue without compacting [if close to finishing]
+  ```
+
+- If user selects "Run /compact now":
+  - Instruct user to type `/compact` in the chat
+  - Wait for user to run the command
+  - Continue after compact completes
+
+#### 7. Re-run agent QA (if selected)
+
+If user selected "Re-run agent QA" in step 4:
+
+1. Ask which files to review:
+   - **All files** — Review all files in the "Agent QA" section
+   - **Specific files** — User specifies which files
+
+2. Run agent code review on selected files
+
+3. Report findings
+
+4. Check context window (step 6)
+
+5. Return to step 4 (ask what to do next)
+
+### Phase 3: Human QA Plan Creation
+
+#### 8. Create Human QA Plan (only when user selects "Proceed with Human QA Plan")
+
+Generate a detailed, step-by-step Human QA Plan that a human can follow to thoroughly test the implemented changes.
 
 The plan should include:
 
@@ -128,25 +226,9 @@ Each test should be:
 2. **Expected result:** [Smooth user experience]
 ```
 
-Update the GitHub issue with this Human QA Plan section using `gh issue edit`.
+#### 9. Add findings section to GitHub issue (if applicable)
 
-### 4. Report findings and handle issues
-
-Handle code review findings based on severity using a hybrid approach:
-
-**Critical/High Severity Issues:**
-1. Print findings to terminal with:
-   - File and location
-   - Description of the issue
-   - Why it's critical/high severity
-   - Suggested fix
-2. Ask the user: "Critical/High severity issues found. Would you like to:"
-   - **Fix them now** — Address issues immediately in this session
-   - **Create blocking GitHub issues** — Create separate issues that block this one
-   - **Document and proceed** — Add to findings section and continue (not recommended for critical issues)
-
-**Medium/Low Severity Issues:**
-1. Add an "Agent Code Review Findings" section to the GitHub issue:
+If there were any Medium/Low severity issues found during Agent QA that weren't fixed, add an "Agent Code Review Findings" section to the GitHub issue:
 
 ```markdown
 ## Agent Code Review Findings
@@ -162,39 +244,79 @@ Handle code review findings based on severity using a hybrid approach:
   - Suggested fix: [Fix recommendation]
 ```
 
-2. These can be addressed later or turned into follow-up issues after human QA
+#### 10. Update GitHub issue with Human QA Plan
 
-**If no issues found:**
-- Report that agent code review passed
-- Skip the findings section
-- Recommend proceeding directly to human QA
+Add the Human QA Plan section (and findings section if applicable) to the GitHub issue using `gh issue edit`.
 
-### 5. GitHub issue next steps
+### Phase 4: Post-QA Actions
 
-Ask the user what they would like to do with the GitHub issue now that QA is complete. Present options and recommendations:
+#### 11. Ask what to do after Human QA Plan creation
 
-**Options:**
-- **Proceed with Human QA** — Use the Human QA Plan to manually test (recommended if no critical issues)
-- **Fix agent-identified issues first** — Address code review findings before human QA (recommended if critical issues found)
-- **Close the issue as complete** — Skip human QA and mark as done (only if very confident):
-  1. Remove `in-review` label: `gh issue edit <issue-number> --remove-label "in-review"`
-  2. Move to "Done" column: `gh project item-edit --id $(gh issue view <issue-number> --json projectItems --jq '.projectItems[0].id') --project-id 5 --field-id $(gh project field-list --owner SamuelEarl --project 5 --format json | jq -r '.fields[] | select(.name=="Status") | .id') --text "Done"`
-  3. Close issue: `gh issue close <issue-number>`
-- **Create follow-up issues** — Split QA findings or human QA into separate issues
-- **Request peer review** — Get another developer to review before proceeding
+Present final options:
 
-**Recommended approach:**
-- If critical/high severity issues found and fixed: Run `/qa` again to verify
-- If critical/high issues turned into blocking GitHub issues: Address those first, then continue
-- If only medium/low issues or no issues: Proceed with human QA using the plan
-- If human QA reveals new issues: Create follow-up issues for those
-- After successful human QA: 
-  - Create follow-up issues for any remaining Medium/Low findings (if worth addressing)
-  - Remove `in-review` label: `gh issue edit <issue-number> --remove-label "in-review"`
-  - Move to "Done" column: `gh project item-edit --id $(gh issue view <issue-number> --json projectItems --jq '.projectItems[0].id') --project-id 5 --field-id $(gh project field-list --owner SamuelEarl --project 5 --format json | jq -r '.fields[] | select(.name=="Status") | .id') --text "Done"`
-  - Close the issue: `gh issue close <issue-number>`
+```
+Human QA Plan has been added to the issue. What would you like to do?
 
-Ask: "Agent QA complete and Human QA Plan added to the issue. What would you like to do next?"
+Options:
+- Proceed with Human QA [you will test manually using the plan]
+- Create follow-up issues [for remaining Medium/Low findings or new items]
+- Close the issue as complete [if Human QA already done or not needed]
+```
+
+Wait for user selection.
+
+#### 12. Close issue workflow (if selected)
+
+If user selects "Close the issue as complete":
+
+1. **Confirm with user:**
+   ```
+   Confirm close? This will:
+   - Remove the `in-review` label
+   - Move the issue to "Done" column
+   - Close the issue
+   
+   Proceed? (yes/no)
+   ```
+
+2. **If confirmed, execute close workflow:**
+   ```bash
+   # Remove in-review label
+   gh issue edit <issue-number> --remove-label "in-review"
+   
+   # Move to Done column
+   gh project item-edit \
+     --id $(gh issue view <issue-number> --json projectItems --jq '.projectItems[0].id') \
+     --project-id 5 \
+     --field-id $(gh project field-list --owner SamuelEarl --project 5 --format json | jq -r '.fields[] | select(.name=="Status") | .id') \
+     --text "Done"
+   
+   # Close issue
+   gh issue close <issue-number>
+   ```
+
+3. **Report completion:**
+   ```
+   ✓ Issue #<number> closed successfully
+   ✓ Moved to Done
+   ✓ Removed in-review label
+   ```
+
+#### 13. Create follow-up issues (if selected)
+
+If user selects "Create follow-up issues":
+
+1. Ask what type of follow-up issues to create:
+   - **From Agent QA findings** — Create issues from remaining Medium/Low findings
+   - **From Human QA results** — Create issues from manual testing discoveries
+   - **Both** — Create issues from both sources
+
+2. For each issue to create:
+   - Ask for issue title and details
+   - Create the GitHub issue with appropriate labels
+   - Link to the original issue (e.g., "Follow-up from #123")
+
+3. After creating follow-up issues, return to step 11 (ask what to do next)
 
 ## QA Principles
 
