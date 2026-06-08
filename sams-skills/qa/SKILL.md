@@ -272,7 +272,7 @@ If user selects "Close the issue as complete":
 1. **Confirm with user:**
    ```
    Confirm close? This will:
-   - Remove the `in-review` label
+   - Remove the `In review` label
    - Move the issue to "Done" column
    - Close the issue
    
@@ -281,8 +281,8 @@ If user selects "Close the issue as complete":
 
 2. **If confirmed, execute close workflow:**
    ```bash
-   # Remove in-review label
-   gh issue edit <issue-number> --remove-label "in-review"
+   # Remove In review label
+   gh issue edit <issue-number> --remove-label "In review"
    
    # Move to Done column
    gh project item-edit \
@@ -299,7 +299,7 @@ If user selects "Close the issue as complete":
    ```
    ✓ Issue #<number> closed successfully
    ✓ Moved to Done
-   ✓ Removed in-review label
+   ✓ Removed In review label
    ```
 
 #### 13. Create follow-up issues (if selected)

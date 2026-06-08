@@ -62,10 +62,10 @@ Iterate until the user approves the breakdown.
 
 ### 5. Publish the issues to the issue tracker
 
-For each approved slice, publish a new issue to the issue tracker with the `ready-for-implementation` label, then move to the project board:
+For each approved slice, publish a new issue to the issue tracker with the `Ready for implementation` label, then move to the project board:
 
 1. Create the issue using the template below
-2. Add label: `gh issue edit <issue-number> --add-label "ready-for-implementation"`
+2. Add label: `gh issue edit <issue-number> --add-label "Ready for implementation"`
 3. Move to "Ready" column: `gh project item-edit --id $(gh issue view <issue-number> --json projectItems --jq '.projectItems[0].id') --project-id 5 --field-id $(gh project field-list --owner SamuelEarl --project 5 --format json | jq -r '.fields[] | select(.name=="Status") | .id') --text "Ready"`
 
 Publish issues in dependency order (blockers first) so you can reference real issue identifiers in the "Blocked by" field.
@@ -100,8 +100,8 @@ Or "None - can start immediately" if no blockers.
 After all issues are created, update the parent PRD issue to reflect that implementation is underway:
 
 1. **Update labels**:
-   - Remove `ready-to-create-issues`: `gh issue edit <prd-issue-number> --remove-label "ready-to-create-issues"`
-   - Add `in-progress`: `gh issue edit <prd-issue-number> --add-label "in-progress"`
+   - Remove `Ready to create issues`: `gh issue edit <prd-issue-number> --remove-label "Ready to create issues"`
+   - Add `In progress`: `gh issue edit <prd-issue-number> --add-label "In progress"`
 
 2. **Move to "In progress" column**: `gh project item-edit --id $(gh issue view <prd-issue-number> --json projectItems --jq '.projectItems[0].id') --project-id 5 --field-id $(gh project field-list --owner SamuelEarl --project 5 --format json | jq -r '.fields[] | select(.name=="Status") | .id') --text "In progress"`
 

@@ -31,8 +31,8 @@ If the issue references a parent issue or related context, read those too.
 Before beginning implementation, update the issue to reflect that work has started:
 
 1. **Update labels**:
-   - Remove `ready-for-implementation`: `gh issue edit <issue-number> --remove-label "ready-for-implementation"`
-   - Add `in-progress`: `gh issue edit <issue-number> --add-label "in-progress"`
+   - Remove `Ready for implementation`: `gh issue edit <issue-number> --remove-label "Ready for implementation"`
+   - Add `In progress`: `gh issue edit <issue-number> --add-label "In progress"`
 
 2. **Move to "In progress" column**: `gh project item-edit --id $(gh issue view <issue-number> --json projectItems --jq '.projectItems[0].id') --project-id 5 --field-id $(gh project field-list --owner SamuelEarl --project 5 --format json | jq -r '.fields[] | select(.name=="Status") | .id') --text "In progress"`
 
@@ -173,8 +173,8 @@ Files changed during implementation:
 ```
 
 2. **Update labels** on the issue:
-   - Remove the `in-progress` label: `gh issue edit <issue-number> --remove-label "in-progress"`
-   - Add the `in-review` label: `gh issue edit <issue-number> --add-label "in-review"`
+   - Remove the `In progress` label: `gh issue edit <issue-number> --remove-label "In progress"`
+   - Add the `In review` label: `gh issue edit <issue-number> --add-label "In review"`
 
 3. **Move to "In review" column**: `gh project item-edit --id $(gh issue view <issue-number> --json projectItems --jq '.projectItems[0].id') --project-id 5 --field-id $(gh project field-list --owner SamuelEarl --project 5 --format json | jq -r '.fields[] | select(.name=="Status") | .id') --text "In review"`
 

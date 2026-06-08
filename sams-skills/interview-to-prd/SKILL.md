@@ -1,6 +1,6 @@
 ---
 name: create-prd
-description: Turn the current conversation context into a PRD and publish it to the project issue tracker. Creates GitHub issues with "enhancement" label for future feature enhancements. Requires a GRILL_WITH_DOCS_SUMMARY.md file. Use when user wants to create a PRD from the current context.
+description: Turn the current conversation context into a PRD and publish it to the project issue tracker. Creates GitHub issues with "Enhancement" label for future feature enhancements. Requires a GRILL_WITH_DOCS_SUMMARY.md file. Use when user wants to create a PRD from the current context.
 argument-hint: path/to/GRILL_WITH_DOCS_SUMMARY.md
 ---
 
@@ -20,13 +20,13 @@ The issue tracker and triage label vocabulary should have been provided to you â
 
 Check with the user that these seams match their expectations.
 
-3. Write the PRD using the template below, then publish it to the project issue tracker. Apply the `ready-to-create-issues` and `prd` labels, then move to the project board:
-   - Add labels: `gh issue edit <issue-number> --add-label "ready-to-create-issues,prd"`
+3. Write the PRD using the template below, then publish it to the project issue tracker. Apply the `Ready to create issues` and `PRD` labels, then move to the project board:
+   - Add labels: `gh issue edit <issue-number> --add-label "Ready to create issues,PRD"`
    - Move to "Ready" column: `gh project item-edit --id $(gh issue view <issue-number> --json projectItems --jq '.projectItems[0].id') --project-id 5 --field-id $(gh project field-list --owner SamuelEarl --project 5 --format json | jq -r '.fields[] | select(.name=="Status") | .id') --text "Ready"`
 
 4. Identify all items from the conversation and PRD context that should be handled as future feature enhancements (items that are related but out of scope for the current PRD). For each future feature enhancements:
    - Create a GitHub issue with a clear title and description
-   - Apply the `enhancement` label
+   - Apply the `Enhancement` label
    - Reference the main PRD issue in the description for traceability
 
 <prd-template>
