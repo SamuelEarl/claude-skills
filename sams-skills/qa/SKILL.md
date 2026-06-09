@@ -30,7 +30,48 @@ Fetch the GitHub issue and locate the "Agent QA" section. Extract the list of fi
 
 If the "Agent QA" section is missing, inform the user that this issue was not prepared for QA (it needs to go through the `/implement` workflow first).
 
-#### 2. Perform agent code review (initial round)
+#### 2. Get GitHub Project Configuration
+
+Retrieve the GitHub project configuration for later use:
+
+1. **Check for cached config** in `.claude/project-config.json`:
+   ```bash
+   if [ -f .claude/project-config.json ]; then
+     PROJECT_ID=$(jq -r '.github.project.id // empty' .claude/project-config.json)
+     OWNER=$(jq -r '.github.project.owner // empty' .claude/project-config.json)
+   fi
+   ```
+
+2. **If not cached, extract from issue**:
+   ```bash
+   if [ -z "$PROJECT_ID" ] || [ -z "$OWNER" ]; then
+     PROJECT_ID=$(gh issue view <issue-url> --json projectItems --jq '.projectItems[0].project.id // empty')
+     OWNER=$(gh issue view <issue-url> --json projectItems --jq '.projectItems[0].project.owner.login // empty')
+   fi
+   ```
+
+3. **Error handling** if project info cannot be determined:
+   ```bash
+   if [ -z "$PROJECT_ID" ] || [ -z "$OWNER" ]; then
+     echo "❌ Error: Could not determine GitHub project information."
+     echo ""
+     echo "Solutions:"
+     echo "  1. Add this issue to a GitHub project board first, OR"
+     echo "  2. Manually create .claude/project-config.json with:"
+     echo '     {"github": {"project": {"id": "YOUR_PROJECT_ID", "owner": "YOUR_GITHUB_USERNAME"}}}'
+     exit 1
+   fi
+   ```
+
+4. **Save to cache** for future use:
+   ```bash
+   mkdir -p .claude
+   jq -n --arg id "$PROJECT_ID" --arg owner "$OWNER" \
+     '{github: {project: {id: $id, owner: $owner}}}' > .claude/project-config.json
+   echo "✓ Saved project config to .claude/project-config.json"
+   ```
+
+#### 3. Perform agent code review (initial round)
 
 Review each file listed in the "Agent QA" section. Focus on:
 
@@ -287,8 +328,8 @@ If user selects "Close the issue as complete":
    # Move to Done column
    gh project item-edit \
      --id $(gh issue view <issue-number> --json projectItems --jq '.projectItems[0].id') \
-     --project-id 5 \
-     --field-id $(gh project field-list --owner SamuelEarl --project 5 --format json | jq -r '.fields[] | select(.name=="Status") | .id') \
+     --project-id $PROJECT_ID \
+     --field-id $(gh project field-list --owner $OWNER --project $PROJECT_ID --format json | jq -r '.fields[] | select(.name=="Status") | .id') \
      --text "Done"
    
    # Close issue

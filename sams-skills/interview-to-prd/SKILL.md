@@ -20,11 +20,52 @@ The issue tracker and triage label vocabulary should have been provided to you �
 
 Check with the user that these seams match their expectations.
 
-3. Write the PRD using the template below, then publish it to the project issue tracker. Apply the `Ready to create issues` and `PRD` labels, then move to the project board:
-   - Add labels: `gh issue edit <issue-number> --add-label "Ready to create issues,PRD"`
-   - Move to "Ready" column: `gh project item-edit --id $(gh issue view <issue-number> --json projectItems --jq '.projectItems[0].id') --project-id 5 --field-id $(gh project field-list --owner SamuelEarl --project 5 --format json | jq -r '.fields[] | select(.name=="Status") | .id') --text "Ready"`
+3. Get GitHub Project Configuration
 
-4. Identify all items from the conversation and PRD context that should be handled as future feature enhancements (items that are related but out of scope for the current PRD). For each future feature enhancements:
+Before publishing the PRD, retrieve the GitHub project configuration:
+
+1. **Check for cached config** in `.claude/project-config.json`:
+   ```bash
+   if [ -f .claude/project-config.json ]; then
+     PROJECT_ID=$(jq -r '.github.project.id // empty' .claude/project-config.json)
+     OWNER=$(jq -r '.github.project.owner // empty' .claude/project-config.json)
+   fi
+   ```
+
+2. **If not cached, try to detect from repository**:
+   ```bash
+   if [ -z "$PROJECT_ID" ] || [ -z "$OWNER" ]; then
+     # Get owner from git remote
+     OWNER=$(git remote get-url origin | sed -n 's#.*github.com[:/]\([^/]*\)/.*#\1#p')
+     # Project ID needs to be manually configured or detected from an existing issue on the board
+     echo "⚠️  Project ID not found in cache. You may need to configure it manually."
+   fi
+   ```
+
+3. **Manual configuration fallback**:
+   ```bash
+   if [ -z "$PROJECT_ID" ] || [ -z "$OWNER" ]; then
+     echo "❌ Error: Could not determine GitHub project information."
+     echo ""
+     echo "Please manually create .claude/project-config.json with:"
+     echo '{"github": {"project": {"id": "YOUR_PROJECT_ID", "owner": "YOUR_GITHUB_USERNAME"}}}'
+     exit 1
+   fi
+   ```
+
+4. **Save to cache** for future use:
+   ```bash
+   mkdir -p .claude
+   jq -n --arg id "$PROJECT_ID" --arg owner "$OWNER" \
+     '{github: {project: {id: $id, owner: $owner}}}' > .claude/project-config.json
+   echo "✓ Saved project config to .claude/project-config.json"
+   ```
+
+4. Write the PRD using the template below, then publish it to the project issue tracker. Apply the `Ready to create issues` and `PRD` labels, then move to the project board:
+   - Add labels: `gh issue edit <issue-number> --add-label "Ready to create issues,PRD"`
+   - Move to "Ready" column: `gh project item-edit --id $(gh issue view <issue-number> --json projectItems --jq '.projectItems[0].id') --project-id $PROJECT_ID --field-id $(gh project field-list --owner $OWNER --project $PROJECT_ID --format json | jq -r '.fields[] | select(.name=="Status") | .id') --text "Ready"`
+
+5. Identify all items from the conversation and PRD context that should be handled as future feature enhancements (items that are related but out of scope for the current PRD). For each future feature enhancements:
    - Create a GitHub issue with a clear title and description
    - Apply the `Enhancement` label
    - Reference the main PRD issue in the description for traceability

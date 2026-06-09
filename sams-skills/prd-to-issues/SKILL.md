@@ -60,13 +60,54 @@ Ask the user:
 
 Iterate until the user approves the breakdown.
 
-### 5. Publish the issues to the issue tracker
+### 5. Get GitHub Project Configuration
+
+Before publishing issues, retrieve the GitHub project configuration:
+
+1. **Check for cached config** in `.claude/project-config.json`:
+   ```bash
+   if [ -f .claude/project-config.json ]; then
+     PROJECT_ID=$(jq -r '.github.project.id // empty' .claude/project-config.json)
+     OWNER=$(jq -r '.github.project.owner // empty' .claude/project-config.json)
+   fi
+   ```
+
+2. **If not cached, extract from PRD issue**:
+   ```bash
+   if [ -z "$PROJECT_ID" ] || [ -z "$OWNER" ]; then
+     PROJECT_ID=$(gh issue view <prd-issue-url> --json projectItems --jq '.projectItems[0].project.id // empty')
+     OWNER=$(gh issue view <prd-issue-url> --json projectItems --jq '.projectItems[0].project.owner.login // empty')
+   fi
+   ```
+
+3. **Error handling** if project info cannot be determined:
+   ```bash
+   if [ -z "$PROJECT_ID" ] || [ -z "$OWNER" ]; then
+     echo "❌ Error: Could not determine GitHub project information."
+     echo ""
+     echo "Solutions:"
+     echo "  1. Add the PRD issue to a GitHub project board first, OR"
+     echo "  2. Manually create .claude/project-config.json with:"
+     echo '     {"github": {"project": {"id": "YOUR_PROJECT_ID", "owner": "YOUR_GITHUB_USERNAME"}}}'
+     exit 1
+   fi
+   ```
+
+4. **Save to cache** for future use:
+   ```bash
+   mkdir -p .claude
+   jq -n --arg id "$PROJECT_ID" --arg owner "$OWNER" \
+     '{github: {project: {id: $id, owner: $owner}}}' > .claude/project-config.json
+   echo "✓ Saved project config to .claude/project-config.json"
+   ```
+
+### 6. Publish the issues to the issue tracker
 
 For each approved slice, publish a new issue to the issue tracker with the `Ready for implementation` label, then move to the project board:
 
 1. Create the issue using the template below
 2. Add label: `gh issue edit <issue-number> --add-label "Ready for implementation"`
-3. Move to "Ready" column: `gh project item-edit --id $(gh issue view <issue-number> --json projectItems --jq '.projectItems[0].id') --project-id 5 --field-id $(gh project field-list --owner SamuelEarl --project 5 --format json | jq -r '.fields[] | select(.name=="Status") | .id') --text "Ready"`
+3. Move to "Ready" column: `gh project item-edit --id $(gh issue view <issue-number> --json projectItems --jq '.projectItems[0].id') --project-id $PROJECT_ID --field-id $(gh project field-list --owner $OWNER --project $PROJECT_ID --format json | jq -r '.fields[] | select(.name=="Status") | .id') --text "Ready"`
 
 Publish issues in dependency order (blockers first) so you can reference real issue identifiers in the "Blocked by" field.
 
@@ -103,6 +144,6 @@ After all issues are created, update the parent PRD issue to reflect that implem
    - Remove `Ready to create issues`: `gh issue edit <prd-issue-number> --remove-label "Ready to create issues"`
    - Add `In progress`: `gh issue edit <prd-issue-number> --add-label "In progress"`
 
-2. **Move to "In progress" column**: `gh project item-edit --id $(gh issue view <prd-issue-number> --json projectItems --jq '.projectItems[0].id') --project-id 5 --field-id $(gh project field-list --owner SamuelEarl --project 5 --format json | jq -r '.fields[] | select(.name=="Status") | .id') --text "In progress"`
+2. **Move to "In progress" column**: `gh project item-edit --id $(gh issue view <prd-issue-number> --json projectItems --jq '.projectItems[0].id') --project-id $PROJECT_ID --field-id $(gh project field-list --owner $OWNER --project $PROJECT_ID --format json | jq -r '.fields[] | select(.name=="Status") | .id') --text "In progress"`
 
 Do NOT close the parent PRD issue.

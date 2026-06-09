@@ -26,6 +26,47 @@ Fetch the issue from GitHub and extract:
 
 If the issue references a parent issue or related context, read those too.
 
+## Get GitHub Project Configuration
+
+Before updating issue status, retrieve the GitHub project configuration:
+
+1. **Check for cached config** in `.claude/project-config.json`:
+   ```bash
+   if [ -f .claude/project-config.json ]; then
+     PROJECT_ID=$(jq -r '.github.project.id // empty' .claude/project-config.json)
+     OWNER=$(jq -r '.github.project.owner // empty' .claude/project-config.json)
+   fi
+   ```
+
+2. **If not cached, extract from issue**:
+   ```bash
+   if [ -z "$PROJECT_ID" ] || [ -z "$OWNER" ]; then
+     PROJECT_ID=$(gh issue view <issue-url> --json projectItems --jq '.projectItems[0].project.id // empty')
+     OWNER=$(gh issue view <issue-url> --json projectItems --jq '.projectItems[0].project.owner.login // empty')
+   fi
+   ```
+
+3. **Error handling** if project info cannot be determined:
+   ```bash
+   if [ -z "$PROJECT_ID" ] || [ -z "$OWNER" ]; then
+     echo "❌ Error: Could not determine GitHub project information."
+     echo ""
+     echo "Solutions:"
+     echo "  1. Add this issue to a GitHub project board first, OR"
+     echo "  2. Manually create .claude/project-config.json with:"
+     echo '     {"github": {"project": {"id": "YOUR_PROJECT_ID", "owner": "YOUR_GITHUB_USERNAME"}}}'
+     exit 1
+   fi
+   ```
+
+4. **Save to cache** for future use:
+   ```bash
+   mkdir -p .claude
+   jq -n --arg id "$PROJECT_ID" --arg owner "$OWNER" \
+     '{github: {project: {id: $id, owner: $owner}}}' > .claude/project-config.json
+   echo "✓ Saved project config to .claude/project-config.json"
+   ```
+
 ## Update Issue Status
 
 Before beginning implementation, update the issue to reflect that work has started:
@@ -34,7 +75,7 @@ Before beginning implementation, update the issue to reflect that work has start
    - Remove `Ready for implementation`: `gh issue edit <issue-number> --remove-label "Ready for implementation"`
    - Add `In progress`: `gh issue edit <issue-number> --add-label "In progress"`
 
-2. **Move to "In progress" column**: `gh project item-edit --id $(gh issue view <issue-number> --json projectItems --jq '.projectItems[0].id') --project-id 5 --field-id $(gh project field-list --owner SamuelEarl --project 5 --format json | jq -r '.fields[] | select(.name=="Status") | .id') --text "In progress"`
+2. **Move to "In progress" column**: `gh project item-edit --id $(gh issue view <issue-number> --json projectItems --jq '.projectItems[0].id') --project-id $PROJECT_ID --field-id $(gh project field-list --owner $OWNER --project $PROJECT_ID --format json | jq -r '.fields[] | select(.name=="Status") | .id') --text "In progress"`
 
 ## TDD Philosophy
 
@@ -176,7 +217,7 @@ Files changed during implementation:
    - Remove the `In progress` label: `gh issue edit <issue-number> --remove-label "In progress"`
    - Add the `In review` label: `gh issue edit <issue-number> --add-label "In review"`
 
-3. **Move to "In review" column**: `gh project item-edit --id $(gh issue view <issue-number> --json projectItems --jq '.projectItems[0].id') --project-id 5 --field-id $(gh project field-list --owner SamuelEarl --project 5 --format json | jq -r '.fields[] | select(.name=="Status") | .id') --text "In review"`
+3. **Move to "In review" column**: `gh project item-edit --id $(gh issue view <issue-number> --json projectItems --jq '.projectItems[0].id') --project-id $PROJECT_ID --field-id $(gh project field-list --owner $OWNER --project $PROJECT_ID --format json | jq -r '.fields[] | select(.name=="Status") | .id') --text "In review"`
 
 4. **Inform the user**: "Implementation complete. The issue has been documented and labeled for QA. You can now run `/qa <issue-link>` to perform quality assurance."
 
