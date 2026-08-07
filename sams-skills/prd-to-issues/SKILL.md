@@ -103,10 +103,10 @@ Before publishing issues, retrieve the GitHub project configuration:
 
 ### 6. Publish the issues to the issue tracker
 
-For each approved slice, publish a new issue to the issue tracker with the `Ready for implementation` label, then move to the project board:
+For each approved slice, publish a new issue to the issue tracker with the `Feature` and `Ready for implementation` labels, then move to the project board:
 
 1. Create the issue using the template below
-2. Add label: `gh issue edit <issue-number> --add-label "Ready for implementation"`
+2. Add labels: `gh issue edit <issue-number> --add-label "Feature,Ready for implementation"`
 3. Move to "Ready" column: `gh project item-edit --id $(gh issue view <issue-number> --json projectItems --jq '.projectItems[0].id') --project-id $PROJECT_ID --field-id $(gh project field-list --owner $OWNER --project $PROJECT_ID --format json | jq -r '.fields[] | select(.name=="Status") | .id') --text "Ready"`
 
 Publish issues in dependency order (blockers first) so you can reference real issue identifiers in the "Blocked by" field.
