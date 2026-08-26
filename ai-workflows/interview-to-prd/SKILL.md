@@ -1,5 +1,5 @@
 ---
-name: create-prd
+name: interview-to-prd
 description: Turn the current conversation context into a PRD and publish it to the project issue tracker. Creates GitHub issues with "Enhancement" label for future feature enhancements. Requires a GRILL_WITH_DOCS_SUMMARY.md file. Use when user wants to create a PRD from the current context.
 argument-hint: path/to/GRILL_WITH_DOCS_SUMMARY.md
 ---
