@@ -69,7 +69,15 @@ Before updating issue status, retrieve the GitHub project configuration:
 
 ## Update Issue Status
 
-Before beginning implementation, update the issue to reflect that work has started:
+Before beginning implementation, ask the user to confirm status updates:
+
+> "I'll update the issue to reflect that work has started. Can I:
+> - Remove the `Ready for implementation` label and add `In progress`
+> - Move the issue to the **In progress** column on the project board"
+
+Wait for explicit approval before running either command.
+
+Once approved:
 
 1. **Update labels**:
    - Remove `Ready for implementation`: `gh issue edit <issue-number> --remove-label "Ready for implementation"`
