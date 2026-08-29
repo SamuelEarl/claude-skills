@@ -19,7 +19,7 @@ Include:
 1. **Session date** — the date this session took place, formatted as "Session Date: DD MMM YYYY" (e.g., "Session Date: 04 Jun 2026") at the top of the file
 2. **Goal** — what the session set out to accomplish
 3. **Decisions made** — what was decided and why, including alternatives that were considered and rejected
-4. **Current state** — what was built, changed, or configured so far
+4. **Current state** — what was built, changed, or configured so far. Include the **current layer/phase** (UI, API, or DB) of any feature in flight and the **stubs still standing** (what is still faked with dummy data and which later layer will replace it), so the next session knows what is real and what is not yet wired.
 5. **Open questions** — unresolved issues that need answers
 6. **Next steps** — what the next session should pick up
 7. **Suggested skills** — skills the next session should invoke

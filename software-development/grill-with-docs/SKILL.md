@@ -65,6 +65,10 @@ When the user uses vague or overloaded terms, propose a precise canonical term. 
 
 When domain relationships are being discussed, stress-test them with specific scenarios. Invent scenarios that probe edge cases and force the user to be precise about the boundaries between concepts.
 
+### Challenge the UI first, then pin down layer boundaries
+
+This project builds **top-down, UI-first**: the UI is built first against stubs returning dummy data, then the API, then the DB. Grill the **UI and interaction design first** — what the user sees, the states, the flows — before any backend detail. Then, for each thing the UI depends on, force the layer boundary into the open: "This screen needs the member list — what's the **stub seam** here? What dummy data does the UI stand on until the real API lands?" Make the user name what is faked at each boundary and which later layer makes it real.
+
 ### Cross-reference with code
 
 When the user states how something works, check whether the code agrees. If you find a contradiction, surface it: "Your code cancels entire Orders, but you just said partial cancellation is possible — which is right?"

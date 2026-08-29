@@ -18,7 +18,9 @@ The issue tracker and triage label vocabulary should have been provided to you �
 
 2. Sketch out the seams at which you're going to test the feature. Existing seams should be preferred to new ones. Use the highest seam possible. If new seams are needed, propose them at the highest point you can.
 
-Check with the user that these seams match their expectations.
+   Plan the work **top-down, UI-first**: the feature will be built as ordered layer passes — **UI → API → DB**. The UI is built first against a **stub that returns dummy data** so it is demoable before any backend exists; the API pass then replaces the stub, and the DB pass adds real persistence behind it. For each layer boundary, identify the **stub seam** the UI will stand on (what gets faked, and which later layer makes it real). UI slices are tested at that stub seam.
+
+Check with the user that these seams and the UI → API → DB layering match their expectations.
 
 3. Get GitHub Project Configuration
 
@@ -29,6 +31,7 @@ Before publishing the PRD, retrieve the GitHub project configuration:
    if [ -f .claude/project-config.json ]; then
      PROJECT_ID=$(jq -r '.github.project.id // empty' .claude/project-config.json)
      OWNER=$(jq -r '.github.project.owner // empty' .claude/project-config.json)
+     PROJECT_NUMBER=$(jq -r '.github.project.number // empty' .claude/project-config.json)
    fi
    ```
 
@@ -56,14 +59,21 @@ Before publishing the PRD, retrieve the GitHub project configuration:
 4. **Save to cache** for future use:
    ```bash
    mkdir -p .claude
-   jq -n --arg id "$PROJECT_ID" --arg owner "$OWNER" \
-     '{github: {project: {id: $id, owner: $owner}}}' > .claude/project-config.json
+   jq -n --arg id "$PROJECT_ID" --arg owner "$OWNER" --arg number "$PROJECT_NUMBER" \
+     '{github: {project: {id: $id, owner: $owner, number: ($number | tonumber? // $number)}}}' > .claude/project-config.json
    echo "✓ Saved project config to .claude/project-config.json"
    ```
 
 4. Write the PRD using the template below, then publish it to the project issue tracker. Apply the `Ready to create issues` and `PRD` labels, then move to the project board:
    - Add labels: `gh issue edit <issue-number> --add-label "Ready to create issues,PRD"`
-   - Move to "Ready" column: `gh project item-edit --id $(gh issue view <issue-number> --json projectItems --jq '.projectItems[0].id') --project-id $PROJECT_ID --field-id $(gh project field-list --owner $OWNER --project $PROJECT_ID --format json | jq -r '.fields[] | select(.name=="Status") | .id') --text "Ready"`
+   - Move to "Ready" column. The Status field is **single-select**, so `--text` does not work — resolve the option id and use `--single-select-option-id`. The item id also cannot be read from `gh issue view` (its `projectItems` has no usable id); look it up on the board by issue number:
+     ```bash
+     FIELDS=$(gh project field-list "$PROJECT_NUMBER" --owner "$OWNER" --format json)
+     FIELD_ID=$(echo "$FIELDS" | jq -r '.fields[] | select(.name=="Status") | .id')
+     OPTION_ID=$(echo "$FIELDS" | jq -r '.fields[] | select(.name=="Status") | .options[] | select(.name=="Ready") | .id')
+     ITEM_ID=$(gh project item-list "$PROJECT_NUMBER" --owner "$OWNER" --format json | jq -r '.items[] | select(.content.number==<issue-number>) | .id')
+     gh project item-edit --id "$ITEM_ID" --project-id "$PROJECT_ID" --field-id "$FIELD_ID" --single-select-option-id "$OPTION_ID"
+     ```
 
 5. Identify all items from the conversation and PRD context that should be handled as future feature enhancements (items that are related but out of scope for the current PRD). For each future feature enhancements:
    - Create a GitHub issue with a clear title and description
@@ -103,6 +113,7 @@ A list of implementation decisions that were made. This can include:
 - Schema changes
 - API contracts
 - Specific interactions
+- **Layering (UI → API → DB)**: how the feature splits into a UI pass (built first against stubs returning dummy data), an API pass (replaces the stubs), and a DB pass (real persistence), and the **stub seams** the UI stands on until the backend passes make them real
 
 Do NOT include specific file paths or code snippets. They may end up being outdated very quickly.
 
@@ -115,6 +126,7 @@ A list of testing decisions that were made. Include:
 - A description of what makes a good test (only test external behavior, not implementation details)
 - Which modules will be tested
 - Prior art for the tests (i.e. similar types of tests in the codebase)
+- How each layer is tested: UI slices are tested against the **stub seam** (dummy data, no real backend), and the API/DB passes are tested where they replace those stubs
 
 ## Out of Scope
 

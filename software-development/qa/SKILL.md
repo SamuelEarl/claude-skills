@@ -39,6 +39,7 @@ Retrieve the GitHub project configuration for later use:
    if [ -f .claude/project-config.json ]; then
      PROJECT_ID=$(jq -r '.github.project.id // empty' .claude/project-config.json)
      OWNER=$(jq -r '.github.project.owner // empty' .claude/project-config.json)
+     PROJECT_NUMBER=$(jq -r '.github.project.number // empty' .claude/project-config.json)
    fi
    ```
 
@@ -47,6 +48,7 @@ Retrieve the GitHub project configuration for later use:
    if [ -z "$PROJECT_ID" ] || [ -z "$OWNER" ]; then
      PROJECT_ID=$(gh issue view <issue-url> --json projectItems --jq '.projectItems[0].project.id // empty')
      OWNER=$(gh issue view <issue-url> --json projectItems --jq '.projectItems[0].project.owner.login // empty')
+     PROJECT_NUMBER=$(gh issue view <issue-url> --json projectItems --jq '.projectItems[0].project.number // empty')
    fi
    ```
 
@@ -66,12 +68,14 @@ Retrieve the GitHub project configuration for later use:
 4. **Save to cache** for future use:
    ```bash
    mkdir -p .claude
-   jq -n --arg id "$PROJECT_ID" --arg owner "$OWNER" \
-     '{github: {project: {id: $id, owner: $owner}}}' > .claude/project-config.json
+   jq -n --arg id "$PROJECT_ID" --arg owner "$OWNER" --arg number "$PROJECT_NUMBER" \
+     '{github: {project: {id: $id, owner: $owner, number: ($number | tonumber? // $number)}}}' > .claude/project-config.json
    echo "✓ Saved project config to .claude/project-config.json"
    ```
 
 #### 3. Perform agent code review (initial round)
+
+First note the issue's `## Layer` (UI, API, or DB). A **UI-layer** issue is built and QA'd **against a stub returning dummy data** — do not flag "talks to a stub instead of the real API/DB" or "no persistence" as a defect; that is by design and is delivered by the later API/DB passes. Review the UI's behavior down to its stub seam. For an API/DB issue, verify it correctly replaces the stub the layer above it stood on.
 
 Review each file listed in the "Agent QA" section. Focus on:
 
@@ -212,6 +216,8 @@ If user selected "Re-run agent QA" in step 4:
 
 Generate a detailed, step-by-step Human QA Plan that a human can follow to thoroughly test the implemented changes.
 
+For a **UI-layer** issue, the plan tests the UI against the **stub / dummy data** (that is what exists) and must explicitly state what is **deferred to the API and DB passes** (e.g. "real persistence, real invitations, and the enforced limit are verified in issues #X/#Y"), so the human does not test — or fail — behavior that is intentionally still stubbed.
+
 The plan should include:
 
 1. **Setup steps** — How to prepare the environment for testing
@@ -325,12 +331,14 @@ If user selects "Close the issue as complete":
    # Remove In review label
    gh issue edit <issue-number> --remove-label "In review"
    
-   # Move to Done column
-   gh project item-edit \
-     --id $(gh issue view <issue-number> --json projectItems --jq '.projectItems[0].id') \
-     --project-id $PROJECT_ID \
-     --field-id $(gh project field-list --owner $OWNER --project $PROJECT_ID --format json | jq -r '.fields[] | select(.name=="Status") | .id') \
-     --text "Done"
+   # Move to Done column (single-select Status: resolve the option id and use
+   # --single-select-option-id; the item id can't be read from `gh issue view`,
+   # so look it up on the board by issue number)
+   FIELDS=$(gh project field-list "$PROJECT_NUMBER" --owner "$OWNER" --format json)
+   FIELD_ID=$(echo "$FIELDS" | jq -r '.fields[] | select(.name=="Status") | .id')
+   OPTION_ID=$(echo "$FIELDS" | jq -r '.fields[] | select(.name=="Status") | .options[] | select(.name=="Done") | .id')
+   ITEM_ID=$(gh project item-list "$PROJECT_NUMBER" --owner "$OWNER" --format json | jq -r '.items[] | select(.content.number==<issue-number>) | .id')
+   gh project item-edit --id "$ITEM_ID" --project-id "$PROJECT_ID" --field-id "$FIELD_ID" --single-select-option-id "$OPTION_ID"
    
    # Close issue
    gh issue close <issue-number>

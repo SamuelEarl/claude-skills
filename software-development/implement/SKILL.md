@@ -8,6 +8,8 @@ argument-hint: <GitHub-issue-link>
 
 Implement a single issue using TDD.
 
+Issues in this project are **layer slices** (UI, API, or DB) built top-down. A **UI-layer** issue is built against a **stub that returns dummy data** — do not reach for the real API or DB; implement and test the UI down to the stub seam named in the issue. An **API** or **DB** issue replaces the stub the layer above it stands on. Honor the issue's `## Layer` and stub seam: build only that layer.
+
 ## Input
 
 The user must provide a GitHub issue link as an argument. If no link is provided, ask the user for it with these instructions:
@@ -35,6 +37,7 @@ Before updating issue status, retrieve the GitHub project configuration:
    if [ -f .claude/project-config.json ]; then
      PROJECT_ID=$(jq -r '.github.project.id // empty' .claude/project-config.json)
      OWNER=$(jq -r '.github.project.owner // empty' .claude/project-config.json)
+     PROJECT_NUMBER=$(jq -r '.github.project.number // empty' .claude/project-config.json)
    fi
    ```
 
@@ -43,6 +46,7 @@ Before updating issue status, retrieve the GitHub project configuration:
    if [ -z "$PROJECT_ID" ] || [ -z "$OWNER" ]; then
      PROJECT_ID=$(gh issue view <issue-url> --json projectItems --jq '.projectItems[0].project.id // empty')
      OWNER=$(gh issue view <issue-url> --json projectItems --jq '.projectItems[0].project.owner.login // empty')
+     PROJECT_NUMBER=$(gh issue view <issue-url> --json projectItems --jq '.projectItems[0].project.number // empty')
    fi
    ```
 
@@ -62,8 +66,8 @@ Before updating issue status, retrieve the GitHub project configuration:
 4. **Save to cache** for future use:
    ```bash
    mkdir -p .claude
-   jq -n --arg id "$PROJECT_ID" --arg owner "$OWNER" \
-     '{github: {project: {id: $id, owner: $owner}}}' > .claude/project-config.json
+   jq -n --arg id "$PROJECT_ID" --arg owner "$OWNER" --arg number "$PROJECT_NUMBER" \
+     '{github: {project: {id: $id, owner: $owner, number: ($number | tonumber? // $number)}}}' > .claude/project-config.json
    echo "✓ Saved project config to .claude/project-config.json"
    ```
 
@@ -83,7 +87,14 @@ Once approved:
    - Remove `Ready for implementation`: `gh issue edit <issue-number> --remove-label "Ready for implementation"`
    - Add `In progress`: `gh issue edit <issue-number> --add-label "In progress"`
 
-2. **Move to "In progress" column**: `gh project item-edit --id $(gh issue view <issue-number> --json projectItems --jq '.projectItems[0].id') --project-id $PROJECT_ID --field-id $(gh project field-list --owner $OWNER --project $PROJECT_ID --format json | jq -r '.fields[] | select(.name=="Status") | .id') --text "In progress"`
+2. **Move to "In progress" column**. The Status field is **single-select**, so `--text` does not work — resolve the option id and use `--single-select-option-id`. The item id also cannot be read from `gh issue view` (its `projectItems` has no usable id); look it up on the board by issue number:
+   ```bash
+   FIELDS=$(gh project field-list "$PROJECT_NUMBER" --owner "$OWNER" --format json)
+   FIELD_ID=$(echo "$FIELDS" | jq -r '.fields[] | select(.name=="Status") | .id')
+   OPTION_ID=$(echo "$FIELDS" | jq -r '.fields[] | select(.name=="Status") | .options[] | select(.name=="In progress") | .id')
+   ITEM_ID=$(gh project item-list "$PROJECT_NUMBER" --owner "$OWNER" --format json | jq -r '.items[] | select(.content.number==<issue-number>) | .id')
+   gh project item-edit --id "$ITEM_ID" --project-id "$PROJECT_ID" --field-id "$FIELD_ID" --single-select-option-id "$OPTION_ID"
+   ```
 
 ## TDD Philosophy
 
@@ -96,6 +107,8 @@ Once approved:
 See [tests.md](tests.md) for examples and [mocking.md](mocking.md) for mocking guidelines.
 
 ## Anti-Pattern: Horizontal Slices
+
+> **Note:** This section is about the **order you write tests vs. code within a single issue** (a TDD concern). It is a *different axis* from how issues are sliced into UI/API/DB layers. Building a UI-layer issue against a stub does not conflict with this — you still write one test then one bit of code, iterating in vertical tracer bullets **within that layer**.
 
 **DO NOT write all tests first, then all implementation.** This is "horizontal slicing" - treating RED as "write all tests" and GREEN as "write all code."
 
@@ -151,7 +164,7 @@ Derive the test plan from the issue's acceptance criteria:
 - [ ] Identify opportunities for [deep modules](deep-modules.md) (small interface, deep implementation)
 - [ ] Design interfaces for [testability](interface-design.md)
 - [ ] List the behaviors to test (not implementation steps)
-- [ ] Order behaviors so the first one is a tracer bullet through all layers
+- [ ] Order behaviors so the first one is a tracer bullet through all layers this issue touches (for a UI-layer issue against a stub, that's the UI path down to the stub seam)
 - [ ] Get user approval on the plan
 
 Ask: "Here are the behaviors I'll test, derived from the acceptance criteria. What should the public interface look like? Which behaviors are most important to test?"
@@ -225,7 +238,14 @@ Files changed during implementation:
    - Remove the `In progress` label: `gh issue edit <issue-number> --remove-label "In progress"`
    - Add the `In review` label: `gh issue edit <issue-number> --add-label "In review"`
 
-3. **Move to "In review" column**: `gh project item-edit --id $(gh issue view <issue-number> --json projectItems --jq '.projectItems[0].id') --project-id $PROJECT_ID --field-id $(gh project field-list --owner $OWNER --project $PROJECT_ID --format json | jq -r '.fields[] | select(.name=="Status") | .id') --text "In review"`
+3. **Move to "In review" column** (single-select Status — resolve the option id; look up the item by issue number):
+   ```bash
+   FIELDS=$(gh project field-list "$PROJECT_NUMBER" --owner "$OWNER" --format json)
+   FIELD_ID=$(echo "$FIELDS" | jq -r '.fields[] | select(.name=="Status") | .id')
+   OPTION_ID=$(echo "$FIELDS" | jq -r '.fields[] | select(.name=="Status") | .options[] | select(.name=="In review") | .id')
+   ITEM_ID=$(gh project item-list "$PROJECT_NUMBER" --owner "$OWNER" --format json | jq -r '.items[] | select(.content.number==<issue-number>) | .id')
+   gh project item-edit --id "$ITEM_ID" --project-id "$PROJECT_ID" --field-id "$FIELD_ID" --single-select-option-id "$OPTION_ID"
+   ```
 
 4. **Inform the user**: "Implementation complete. The issue has been documented and labeled for QA. You can now run `/qa <issue-link>` to perform quality assurance."
 
