@@ -1,18 +1,28 @@
 ---
-name: project-setup
-description: Sets up an `## Agent skills` block in AGENTS.md/CLAUDE.md and `docs/agents/` so the engineering skills know this repo's issue tracker (GitHub or local markdown), triage label vocabulary, and domain doc layout. Run before first use of `to-issues`, `to-prd`, `triage`, `diagnose`, `tdd`, `improve-codebase-architecture`, or `zoom-out`, or if those skills appear to be missing context about the issue tracker, triage labels, or domain docs.
+name: setup-ai-skills
+description: Sets up an `## Agent skills` block in AGENTS.md/CLAUDE.md and `docs/agents/` so the engineering skills know this repo's issue tracker, labels, Kanban board layout, and domain doc structure. Run before using the AI-assisted software engineering workflow to create context about the issue tracker and domain docs.
 disable-model-invocation: true
 ---
 
-# Setup Project
+# Setup AI Skills
 
 Set up the per-repo configuration the engineering skills need.
 
 - **Issue tracker.** Where issues live (GitHub by default; local markdown is also supported).
-- **Triage labels.** The strings used for the five canonical triage roles.
+- **Labels.** Category and status labels defined in `KANBAN_BOARD.md`.
 - **Domain docs.** Where `CONTEXT.md` and ADRs live, and how skills should read them.
 
 This is a prompt-driven skill, not a deterministic script. Explore, present what you found, confirm with the user, then write.
+
+## Files
+
+| File | Location | Purpose |
+| ---- | -------- | ------- |
+| `KANBAN_BOARD.md` | `docs/agents/KANBAN_BOARD.md` | Human-editable label config — edit this to add, rename, or recolor labels |
+| `issue-tracker.md` | `docs/agents/issue-tracker.md` | Issue tracker config and the label-to-column mapping skills read at runtime |
+| `domain.md` | `docs/agents/domain.md` | Domain doc layout |
+
+`KANBAN_BOARD.md` is the source of truth for labels. `issue-tracker.md` is what skills read — it holds the GitHub-generated option IDs that `KANBAN_BOARD.md` cannot. If you edit `KANBAN_BOARD.md` after setup, re-run this skill to regenerate `issue-tracker.md`.
 
 ## Process
 
@@ -26,10 +36,9 @@ Look at the repo to understand its starting state. Read whatever exists; don't a
 - `docs/adr/` and any `src/*/docs/adr/` directories.
 - `docs/agents/`: does this skill's prior output already exist?
 - `.scratch/`: does this indicate a local-markdown issue tracker is in use?
-- Is the `triage` skill installed? Is there a `triage` skill folder alongside this one, or `triage` in your available skills? This decides whether Section B runs at all.
 - Monorepo signals: a `pnpm-workspace.yaml`, a `workspaces` field in `package.json`, or a populated `packages/*` with its own `src/`. These are present only in a genuinely large multi-package repo; their absence means single-context, which is almost every repo.
 - If the remote is GitHub, run `gh project list --owner <owner>` to check whether a project board already exists for this repo.
-- `docs/agents/KANBAN_BOARD.md`: does it exist? If so, it provides label definitions, colors, and column mappings — Sections B and D become confirmations rather than questions, and `triage-labels.md` is not written.
+- `docs/agents/KANBAN_BOARD.md`: does it exist? If not, copy the seed template from this skill folder to `docs/agents/KANBAN_BOARD.md` and ask the user to review it before continuing.
 
 ### 2. Present findings and ask
 
@@ -37,11 +46,11 @@ Summarise what's present and what's missing. Then walk the user through the thre
 
 Assume the user does not know what these terms mean. Each section starts with a short explainer (what it is, why these skills need it, what changes if they pick differently). Then show the choices and the default.
 
-Skip the following sections entirely if the Explore step indicated to do so (i.e. skip Section B if `triage` isn't installed, skip Section C if there is no monorepo, skip Section D if the issue tracker isn't GitHub). When `KANBAN_BOARD.md` exists, Sections B and D are confirmations: show what the file contains and ask the user to confirm or correct rather than asking from scratch.
+Skip Section C if there is no monorepo. Skip Section D if the issue tracker isn't GitHub.
 
 **Section A: Issue tracker**
 
-> The "issue tracker" is where issues live for this repo. Skills like `to-issues`, `triage`, `to-prd`, and `qa` read from and write to it. They need to know whether to call `gh issue create`, write a markdown file under `.scratch/`, or follow some other workflow you describe. Pick the place you actually track work for this repo.
+> The "issue tracker" is where issues live for this repo. Skills like `interview-to-prd`, `prd-to-issues`, `implement`, and `qa` read from and write to it. They need to know whether to call `gh issue create`, write a markdown file under `.scratch/`, or follow some other workflow you describe. Pick the place you actually track work for this repo.
 
 Default: these skills were designed for GitHub. If a `git remote` points at GitHub, propose that. If it points at GitLab, propose GitLab. Otherwise, offer:
 
@@ -50,39 +59,11 @@ Default: these skills were designed for GitHub. If a `git remote` points at GitH
 - **Local markdown.** Issues live as files under `.scratch/<feature>/` in this repo (good for solo projects or repos without a remote).
 - **Other** (Jira, Linear, etc.): ask the user to describe the workflow in one paragraph. The skill records it as freeform prose.
 
-**Section B: Triage label vocabulary**
+**Section B: Labels**
 
-Skip this section entirely if the `triage` skill isn't installed, which should have been discovered during the Explore step.
+> `KANBAN_BOARD.md` defines two kinds of labels. Category labels (`category:*`) classify issues by type and don't change once assigned. Status labels (`status:*`) track state and determine which column an issue sits in on the board.
 
-If `KANBAN_BOARD.md` exists, derive the triage label vocabulary from its `status:*` rows instead of asking. Show the user the derived mapping and ask them to confirm. The five canonical roles map to KANBAN_BOARD.md labels as follows — show the actual label strings found in the file:
-
-| Canonical role    | Label from KANBAN_BOARD.md      |
-| ----------------- | ------------------------------- |
-| needs-triage      | (the `status:needs-triage` row) |
-| needs-info        | (the `status:needs-info` row)   |
-| ready-for-agent   | (the `status:ready-for-agent` row) |
-| ready-for-human   | (the `status:ready-for-human` row) |
-| wontfix           | (the `status:no-action` row)    |
-
-> When the `triage` skill processes an incoming issue, it moves it through a state machine: 
-
-- needs evaluation
-- waiting on reporter
-- ready for an AFK agent
-- ready for a human
-- won't fix
-
-It needs to apply labels (or the equivalent in your issue tracker) that match strings you've actually configured. If your repo uses different label names (e.g. `bug:triage` instead of `needs-triage`), map them here so the skill applies the right ones instead of creating duplicates.
-
-The five canonical roles:
-
-- `needs-triage`: maintainer needs to evaluate
-- `needs-info`: waiting on reporter
-- `ready-for-agent`: fully specified, AFK-ready (an agent can pick it up with no human context)
-- `ready-for-human`: needs human implementation
-- `wontfix`: will not be actioned
-
-Default: each role's string equals its name. Ask the user if they want to override any. If their issue tracker has no existing labels, the defaults are fine.
+Show the user the labels found in `docs/agents/KANBAN_BOARD.md` and ask them to confirm or edit the file before continuing. Don't proceed until the user is happy with the label definitions.
 
 **Section C: Domain docs**
 
@@ -99,23 +80,21 @@ Confirm the layout:
 
 If the Explore step found an existing project board, ask whether to use it or create a new one.
 
-If `KANBAN_BOARD.md` exists, derive the columns from the unique values in its Column column (preserving order of first appearance). Show the derived list and ask the user to confirm or edit.
-
-Default columns when no `KANBAN_BOARD.md` exists: Backlog, Ready, In progress, In review, Done. Ask the user if they want those or a different list.
+Derive the columns from the unique values in the Column column of `docs/agents/KANBAN_BOARD.md` (preserving order of first appearance). Show the derived list and ask the user to confirm or edit.
 
 ### 3. Confirm and edit
 
 Show the user a draft of:
 
 - The `## Agent skills` block to add to whichever of `CLAUDE.md` / `AGENTS.md` is being edited (see step 4 for selection rules).
-- The contents of `docs/agents/issue-tracker.md`, `docs/agents/domain.md`, and `docs/agents/triage-labels.md` (the last only when `triage` is installed).
+- The contents of `docs/agents/issue-tracker.md` and `docs/agents/domain.md`.
 
 When GitHub is the issue tracker and Section D was answered, the draft of `issue-tracker.md` should include a `## Project board` section with the confirmed title and columns. Leave the project number, URL, and Status option IDs as placeholders — they get filled in during step 5 after the project is created.
 
-When `KANBAN_BOARD.md` exists, omit `triage-labels.md` from the draft entirely. The `## Agent skills` block in CLAUDE.md/AGENTS.md should reference `KANBAN_BOARD.md` instead:
+The `## Agent skills` block in CLAUDE.md/AGENTS.md should reference `KANBAN_BOARD.md` for labels:
 
 ```markdown
-### Triage labels
+### Labels
 
 Labels and column mappings are in `docs/agents/KANBAN_BOARD.md`. Status labels (prefix `status:`) drive column placement; category labels (prefix `category:`) classify issues.
 ```
@@ -143,9 +122,9 @@ The block:
 
 [one-line summary of where issues are tracked]. See `docs/agents/issue-tracker.md`.
 
-### Triage labels
+### Labels
 
-[one-line summary of the label vocabulary]. See `docs/agents/triage-labels.md`.
+Labels and column mappings are in `docs/agents/KANBAN_BOARD.md`. Status labels (prefix `status:`) drive column placement; category labels (prefix `category:`) classify issues.
 
 ### Domain docs
 
@@ -157,7 +136,6 @@ Then write the docs files using the seed templates in this skill folder as a sta
 - [issue-tracker-github.md](./issue-tracker-github.md): GitHub issue tracker
 - [issue-tracker-gitlab.md](./issue-tracker-gitlab.md): GitLab issue tracker
 - [issue-tracker-local.md](./issue-tracker-local.md): local-markdown issue tracker
-- [triage-labels.md](./triage-labels.md): label mapping (omit when `KANBAN_BOARD.md` exists)
 - [domain.md](./domain.md): domain doc consumer rules and layout
 
 For "other" issue trackers, write `docs/agents/issue-tracker.md` from scratch using the user's description.
@@ -166,7 +144,7 @@ For "other" issue trackers, write `docs/agents/issue-tracker.md` from scratch us
 
 Skip this step if the issue tracker isn't GitHub.
 
-**5a. Create labels** (when `KANBAN_BOARD.md` exists)
+**5a. Create labels**
 
 Create every label defined in `KANBAN_BOARD.md` using `gh label create`. Run one command per label:
 
@@ -253,24 +231,29 @@ gh api graphql -f query='
 ' -f projectId=<project-node-id> -f fieldId=<status-field-id> -f name="<column-name>"
 ```
 
-When `KANBAN_BOARD.md` exists, derive the column list from the unique values in its Column column (preserving order of first appearance). Otherwise use the confirmed list from Section D.
+Derive the column list from the unique values in the Column column of `docs/agents/KANBAN_BOARD.md` (preserving order of first appearance).
 
 **5e. Update `docs/agents/issue-tracker.md`**
 
-Fill in the `## Project board` section with the real values now known:
+Fill in the `## Project board` section with the project number and URL from step 5b.
 
-- Project number and URL (from step 5b)
-- Status option IDs: after creating the columns, record each column name and its option ID so skills can update project items without extra lookups. Format:
+Then write the `## Label to column mapping` section. Build the table by joining the `status:*` rows from `KANBAN_BOARD.md` (which supply the label name and target column) with the option IDs returned by step 5d (which supply the GitHub-generated ID for each column). Skills read this table to move a card: look up the label just applied, find its column, use the option ID in the GraphQL mutation.
 
 ```
-| Column       | Status option ID |
-| ------------ | ---------------- |
-| Backlog      | <option-id>      |
-| Ready        | <option-id>      |
-| In progress  | <option-id>      |
-| In review    | <option-id>      |
-| Done         | <option-id>      |
+| Status label                  | Column      | Status option ID |
+| ----------------------------- | ----------- | ---------------- |
+| status:needs-triage           | Backlog     | <option-id>      |
+| status:needs-info             | Backlog     | <option-id>      |
+| status:ready-to-create-issues | Ready       | <option-id>      |
+| status:ready-for-agent        | Ready       | <option-id>      |
+| status:ready-for-human        | Ready       | <option-id>      |
+| status:in-progress            | In progress | <option-id>      |
+| status:in-review              | In review   | <option-id>      |
+| status:no-action              | Done        | <option-id>      |
+| status:complete               | Done        | <option-id>      |
 ```
+
+The rows come from `KANBAN_BOARD.md`; only the option IDs are new. Multiple labels can share a column — they get the same option ID.
 
 ### 6. Done
 

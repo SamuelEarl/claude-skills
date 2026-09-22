@@ -26,12 +26,18 @@ Run `gh issue view <number> --comments`.
 Project: [project-title] (#[project-number])
 URL: https://github.com/orgs/[owner]/projects/[project-number]
 
-| Column       | Status option ID |
-| ------------ | ---------------- |
-| Backlog      |                  |
-| Ready        |                  |
-| In progress  |                  |
-| In review    |                  |
-| Done         |                  |
+## Label to column mapping
 
-To move an issue to a column, update its project item's Status field using the option ID from this table. The project node ID and Status field ID are needed for the GraphQL mutation — look them up with `gh api graphql` using the project number above if not cached here.
+To move an issue to a column, apply the label, then update the project item's Status field using the option ID below. The project node ID and Status field ID are needed for the GraphQL mutation — look them up with `gh api graphql` using the project number above.
+
+| Status label                  | Column      | Status option ID |
+| ----------------------------- | ----------- | ---------------- |
+| status:needs-triage           | Backlog     |                  |
+| status:needs-info             | Backlog     |                  |
+| status:ready-to-create-issues | Ready       |                  |
+| status:ready-for-agent        | Ready       |                  |
+| status:ready-for-human        | Ready       |                  |
+| status:in-progress            | In progress |                  |
+| status:in-review              | In review   |                  |
+| status:no-action              | Done        |                  |
+| status:complete               | Done        |                  |

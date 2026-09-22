@@ -1,0 +1,5 @@
+interface:
+  display_name: "Requirements Clarification"
+  short_description: "Clarify a design and write its docs"
+policy:
+  allow_implicit_invocation: false
