@@ -1,4 +1,8 @@
-# Software Development Skills
+# Top-Down Software Engineering Skills
+
+The most current instructions for these skills are in my Google Doc titled "AI-Assisted Software Engineering". 
+
+---
 
 These skills are borrowed from other people and tweaked to fit my workflows. I have renamed many of them to distinguish them from the original versions to make it easier for me to compare my skills to any updates from the originals, which will make it easier for me to make periodic updates when necessary.
 
