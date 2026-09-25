@@ -1,7 +1,8 @@
 ---
 name: qa
-description: Perform agent code review and generate a Human QA Plan for implemented issues. Requires a GitHub issue link with an "Agent QA" section. Use when user wants to QA implemented code, review changes, or create a QA handoff plan.
+description: Perform agent quality assurance and generate a Human QA Plan for implemented issues. Requires a GitHub issue link with an "Agent QA" section. Use when user wants to QA implemented code, review changes, or create a QA handoff plan.
 argument-hint: <GitHub-issue-link>
+disable-model-invocation: true
 ---
 
 # QA
@@ -30,48 +31,39 @@ Fetch the GitHub issue and locate the "Agent QA" section. Extract the list of fi
 
 If the "Agent QA" section is missing, inform the user that this issue was not prepared for QA (it needs to go through the `/implement` workflow first).
 
-#### 2. Get GitHub Project Configuration
+#### 2. Get GitHub project configuration
 
-Retrieve the GitHub project configuration for later use:
+Before proceeding, check that `docs/agents/issue-tracker.md` exists. If it does not, stop and tell the user to run `/setup-ai-skills` first.
 
-1. **Check for cached config** in `.claude/project-config.json`:
-   ```bash
-   if [ -f .claude/project-config.json ]; then
-     PROJECT_ID=$(jq -r '.github.project.id // empty' .claude/project-config.json)
-     OWNER=$(jq -r '.github.project.owner // empty' .claude/project-config.json)
-     PROJECT_NUMBER=$(jq -r '.github.project.number // empty' .claude/project-config.json)
-   fi
-   ```
+Read `docs/agents/issue-tracker.md` and extract:
+- `PROJECT_NUMBER` — from the `## Project board` section, e.g. `(#42)`
+- `OWNER` — from the git remote: `git remote get-url origin | sed -n 's#.*github.com[:/]\([^/]*\)/.*#\1#p'`
+- `COMPLETE_OPTION_ID` — Status option ID for `status:complete`
 
-2. **If not cached, extract from issue**:
-   ```bash
-   if [ -z "$PROJECT_ID" ] || [ -z "$OWNER" ]; then
-     PROJECT_ID=$(gh issue view <issue-url> --json projectItems --jq '.projectItems[0].project.id // empty')
-     OWNER=$(gh issue view <issue-url> --json projectItems --jq '.projectItems[0].project.owner.login // empty')
-     PROJECT_NUMBER=$(gh issue view <issue-url> --json projectItems --jq '.projectItems[0].project.number // empty')
-   fi
-   ```
+If any option IDs are empty, `setup-ai-skills` did not complete successfully. Stop and tell the user to re-run `/setup-ai-skills`.
 
-3. **Error handling** if project info cannot be determined:
-   ```bash
-   if [ -z "$PROJECT_ID" ] || [ -z "$OWNER" ]; then
-     echo "❌ Error: Could not determine GitHub project information."
-     echo ""
-     echo "Solutions:"
-     echo "  1. Add this issue to a GitHub project board first, OR"
-     echo "  2. Manually create .claude/project-config.json with:"
-     echo '     {"github": {"project": {"id": "YOUR_PROJECT_ID", "owner": "YOUR_GITHUB_USERNAME"}}}'
-     exit 1
-   fi
-   ```
+Then fetch the project node ID and Status field ID via GraphQL (these are not cached):
 
-4. **Save to cache** for future use:
-   ```bash
-   mkdir -p .claude
-   jq -n --arg id "$PROJECT_ID" --arg owner "$OWNER" --arg number "$PROJECT_NUMBER" \
-     '{github: {project: {id: $id, owner: $owner, number: ($number | tonumber? // $number)}}}' > .claude/project-config.json
-   echo "✓ Saved project config to .claude/project-config.json"
-   ```
+```bash
+PROJECT_DATA=$(gh api graphql -f query='
+  query($owner: String!, $number: Int!) {
+    user(login: $owner) {
+      projectV2(number: $number) {
+        id
+        fields(first: 20) {
+          nodes {
+            ... on ProjectV2SingleSelectField { id name }
+          }
+        }
+      }
+    }
+  }
+' -f owner="$OWNER" -F number="$PROJECT_NUMBER")
+PROJECT_ID=$(echo "$PROJECT_DATA" | jq -r '.data.user.projectV2.id')
+FIELD_ID=$(echo "$PROJECT_DATA" | jq -r '.data.user.projectV2.fields.nodes[] | select(.name=="Status") | .id')
+```
+
+If the owner is an org, replace `user` with `organization` in the query.
 
 #### 3. Perform agent code review (initial round)
 
@@ -180,9 +172,9 @@ Wait for user selection and proceed to the corresponding step.
 
 After each QA round (review or fix), check the approximate token count:
 
-- If context window is approaching **~100k tokens**, ask:
+- If context window is approaching **~120k tokens**, ask:
   ```
-  Context window is at ~100k tokens. Would you like to run the `/compact` command to condense the conversation?
+  Context window is at ~120k tokens. Would you like to run the `/compact` command to condense the conversation?
   
   Options:
   - Run /compact now [recommended to prevent context overflow]
@@ -319,7 +311,7 @@ If user selects "Close the issue as complete":
 1. **Confirm with user:**
    ```
    Confirm close? This will:
-   - Remove the `In review` label
+   - Remove the `status:in-review` label and add `status:complete`
    - Move the issue to "Done" column
    - Close the issue
    
@@ -328,18 +320,14 @@ If user selects "Close the issue as complete":
 
 2. **If confirmed, execute close workflow:**
    ```bash
-   # Remove In review label
-   gh issue edit <issue-number> --remove-label "In review"
-   
-   # Move to Done column (single-select Status: resolve the option id and use
-   # --single-select-option-id; the item id can't be read from `gh issue view`,
-   # so look it up on the board by issue number)
-   FIELDS=$(gh project field-list "$PROJECT_NUMBER" --owner "$OWNER" --format json)
-   FIELD_ID=$(echo "$FIELDS" | jq -r '.fields[] | select(.name=="Status") | .id')
-   OPTION_ID=$(echo "$FIELDS" | jq -r '.fields[] | select(.name=="Status") | .options[] | select(.name=="Done") | .id')
+   # Update labels
+   gh issue edit <issue-number> --remove-label "status:in-review"
+   gh issue edit <issue-number> --add-label "status:complete"
+
+   # Move to Done column using COMPLETE_OPTION_ID from docs/agents/issue-tracker.md
    ITEM_ID=$(gh project item-list "$PROJECT_NUMBER" --owner "$OWNER" --format json | jq -r '.items[] | select(.content.number==<issue-number>) | .id')
-   gh project item-edit --id "$ITEM_ID" --project-id "$PROJECT_ID" --field-id "$FIELD_ID" --single-select-option-id "$OPTION_ID"
-   
+   gh project item-edit --id "$ITEM_ID" --project-id "$PROJECT_ID" --field-id "$FIELD_ID" --single-select-option-id "$COMPLETE_OPTION_ID"
+
    # Close issue
    gh issue close <issue-number>
    ```
@@ -348,7 +336,7 @@ If user selects "Close the issue as complete":
    ```
    ✓ Issue #<number> closed successfully
    ✓ Moved to Done
-   ✓ Removed In review label
+   ✓ Updated labels to status:complete
    ```
 
 #### 13. Create follow-up issues (if selected)
@@ -362,8 +350,15 @@ If user selects "Create follow-up issues":
 
 2. For each issue to create:
    - Ask for issue title and details
-   - Create the GitHub issue with appropriate labels
+   - Create the GitHub issue
+   - Apply labels: `category:bug` for QA findings, `category:enhancement` for new items; plus `status:needs-triage`
    - Link to the original issue (e.g., "Follow-up from #123")
+   - Move to the project board:
+     ```bash
+     TRIAGE_OPTION_ID=<Status option ID for status:needs-triage from docs/agents/issue-tracker.md>
+     ITEM_ID=$(gh project item-list "$PROJECT_NUMBER" --owner "$OWNER" --format json | jq -r '.items[] | select(.content.number==<new-issue-number>) | .id')
+     gh project item-edit --id "$ITEM_ID" --project-id "$PROJECT_ID" --field-id "$FIELD_ID" --single-select-option-id "$TRIAGE_OPTION_ID"
+     ```
 
 3. After creating follow-up issues, return to step 11 (ask what to do next)
 

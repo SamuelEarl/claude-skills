@@ -1,0 +1,5 @@
+interface:
+  display_name: "Implement"
+  short_description: "Implement a single issue using test-driven development. Requires a GitHub issue link as input, extracts what to build and acceptance criteria, then drives a red-green-refactor loop scoped to that issue. Use when user wants to implement an issue, build a feature from a ticket, or TDD a specific issue."
+policy:
+  allow_implicit_invocation: false

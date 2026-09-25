@@ -1,7 +1,8 @@
 ---
 name: summarize
 description: Compact the current conversation into a handoff summary that a fresh session can use to continue the work. Use when the user wants to summarize a session, create a handoff document, or capture decisions before clearing context.
-argument-hint: path/to/summary.md
+argument-hint: path/to/*_SUMMARY.md
+disable-model-invocation: true
 ---
 
 # Summarize
