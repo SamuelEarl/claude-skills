@@ -2,6 +2,7 @@
 name: implement
 description: Implement a single issue using test-driven development. Requires a GitHub issue link as input, extracts what to build and acceptance criteria, then drives a red-green-refactor loop scoped to that issue. Use when user wants to implement an issue, build a feature from a ticket, or TDD a specific issue.
 argument-hint: <GitHub-issue-link>
+disable-model-invocation: true
 ---
 
 # Implement
@@ -28,73 +29,63 @@ Fetch the issue from GitHub and extract:
 
 If the issue references a parent issue or related context, read those too.
 
-## Get GitHub Project Configuration
+Before proceeding, check that `docs/agents/issue-tracker.md` exists. If it does not, stop and tell the user to run `/setup-ai-skills` first.
 
-Before updating issue status, retrieve the GitHub project configuration:
+## Get GitHub project configuration
 
-1. **Check for cached config** in `.claude/project-config.json`:
+Read `docs/agents/issue-tracker.md` and extract:
+- `PROJECT_NUMBER` — from the `## Project board` section, e.g. `(#42)`
+- `OWNER` — from the git remote: `git remote get-url origin | sed -n 's#.*github.com[:/]\([^/]*\)/.*#\1#p'`
+- `IN_PROGRESS_OPTION_ID` — Status option ID for `status:in-progress`
+- `IN_REVIEW_OPTION_ID` — Status option ID for `status:in-review`
+
+If any option IDs are empty, `setup-ai-skills` did not complete successfully. Stop and tell the user to re-run `/setup-ai-skills`.
+
+Then fetch the project node ID and Status field ID via GraphQL (these are not cached):
+
+```bash
+PROJECT_DATA=$(gh api graphql -f query='
+  query($owner: String!, $number: Int!) {
+    user(login: $owner) {
+      projectV2(number: $number) {
+        id
+        fields(first: 20) {
+          nodes {
+            ... on ProjectV2SingleSelectField { id name }
+          }
+        }
+      }
+    }
+  }
+' -f owner="$OWNER" -F number="$PROJECT_NUMBER")
+PROJECT_ID=$(echo "$PROJECT_DATA" | jq -r '.data.user.projectV2.id')
+FIELD_ID=$(echo "$PROJECT_DATA" | jq -r '.data.user.projectV2.fields.nodes[] | select(.name=="Status") | .id')
+```
+
+If the owner is an org, replace `user` with `organization` in the query.
+
+## Update issue status
+
+Before beginning implementation:
+
+1. **Update labels** — read the issue labels to determine whether `status:ready-for-agent` or `status:ready-for-human` is set, then remove it and add `status:in-progress`:
    ```bash
-   if [ -f .claude/project-config.json ]; then
-     PROJECT_ID=$(jq -r '.github.project.id // empty' .claude/project-config.json)
-     OWNER=$(jq -r '.github.project.owner // empty' .claude/project-config.json)
-     PROJECT_NUMBER=$(jq -r '.github.project.number // empty' .claude/project-config.json)
-   fi
+   gh issue edit <issue-number> --remove-label "status:ready-for-agent"
+   # or: gh issue edit <issue-number> --remove-label "status:ready-for-human"
+   gh issue edit <issue-number> --add-label "status:in-progress"
    ```
 
-2. **If not cached, extract from issue**:
+2. **Move to "In progress" column**. The Status field is **single-select**, so `--text` does not work — use `--single-select-option-id` with `IN_PROGRESS_OPTION_ID` from `docs/agents/issue-tracker.md`. The item id cannot be read from `gh issue view`; look it up on the board by issue number:
    ```bash
-   if [ -z "$PROJECT_ID" ] || [ -z "$OWNER" ]; then
-     PROJECT_ID=$(gh issue view <issue-url> --json projectItems --jq '.projectItems[0].project.id // empty')
-     OWNER=$(gh issue view <issue-url> --json projectItems --jq '.projectItems[0].project.owner.login // empty')
-     PROJECT_NUMBER=$(gh issue view <issue-url> --json projectItems --jq '.projectItems[0].project.number // empty')
-   fi
-   ```
-
-3. **Error handling** if project info cannot be determined:
-   ```bash
-   if [ -z "$PROJECT_ID" ] || [ -z "$OWNER" ]; then
-     echo "❌ Error: Could not determine GitHub project information."
-     echo ""
-     echo "Solutions:"
-     echo "  1. Add this issue to a GitHub project board first, OR"
-     echo "  2. Manually create .claude/project-config.json with:"
-     echo '     {"github": {"project": {"id": "YOUR_PROJECT_ID", "owner": "YOUR_GITHUB_USERNAME"}}}'
-     exit 1
-   fi
-   ```
-
-4. **Save to cache** for future use:
-   ```bash
-   mkdir -p .claude
-   jq -n --arg id "$PROJECT_ID" --arg owner "$OWNER" --arg number "$PROJECT_NUMBER" \
-     '{github: {project: {id: $id, owner: $owner, number: ($number | tonumber? // $number)}}}' > .claude/project-config.json
-   echo "✓ Saved project config to .claude/project-config.json"
-   ```
-
-## Update Issue Status
-
-Before beginning implementation, ask the user to confirm status updates:
-
-> "I'll update the issue to reflect that work has started. Can I:
-> - Remove the `Ready for implementation` label and add `In progress`
-> - Move the issue to the **In progress** column on the project board"
-
-Wait for explicit approval before running either command.
-
-Once approved:
-
-1. **Update labels**:
-   - Remove `Ready for implementation`: `gh issue edit <issue-number> --remove-label "Ready for implementation"`
-   - Add `In progress`: `gh issue edit <issue-number> --add-label "In progress"`
-
-2. **Move to "In progress" column**. The Status field is **single-select**, so `--text` does not work — resolve the option id and use `--single-select-option-id`. The item id also cannot be read from `gh issue view` (its `projectItems` has no usable id); look it up on the board by issue number:
-   ```bash
-   FIELDS=$(gh project field-list "$PROJECT_NUMBER" --owner "$OWNER" --format json)
-   FIELD_ID=$(echo "$FIELDS" | jq -r '.fields[] | select(.name=="Status") | .id')
-   OPTION_ID=$(echo "$FIELDS" | jq -r '.fields[] | select(.name=="Status") | .options[] | select(.name=="In progress") | .id')
    ITEM_ID=$(gh project item-list "$PROJECT_NUMBER" --owner "$OWNER" --format json | jq -r '.items[] | select(.content.number==<issue-number>) | .id')
-   gh project item-edit --id "$ITEM_ID" --project-id "$PROJECT_ID" --field-id "$FIELD_ID" --single-select-option-id "$OPTION_ID"
+   gh project item-edit --id "$ITEM_ID" --project-id "$PROJECT_ID" --field-id "$FIELD_ID" --single-select-option-id "$IN_PROGRESS_OPTION_ID"
    ```
+
+
+
+<!-- TODO: This is probably where I should split the rest of these instructions into their own tdd skill. -->
+
+
 
 ## TDD Philosophy
 
@@ -235,16 +226,13 @@ Files changed during implementation:
 ```
 
 2. **Update labels** on the issue:
-   - Remove the `In progress` label: `gh issue edit <issue-number> --remove-label "In progress"`
-   - Add the `In review` label: `gh issue edit <issue-number> --add-label "In review"`
+   - Remove `status:in-progress`: `gh issue edit <issue-number> --remove-label "status:in-progress"`
+   - Add `status:in-review`: `gh issue edit <issue-number> --add-label "status:in-review"`
 
-3. **Move to "In review" column** (single-select Status — resolve the option id; look up the item by issue number):
+3. **Move to "In review" column** using `IN_REVIEW_OPTION_ID` from `docs/agents/issue-tracker.md`. The Status field is **single-select**, so `--text` does not work — use `--single-select-option-id`. Look up the item id by issue number:
    ```bash
-   FIELDS=$(gh project field-list "$PROJECT_NUMBER" --owner "$OWNER" --format json)
-   FIELD_ID=$(echo "$FIELDS" | jq -r '.fields[] | select(.name=="Status") | .id')
-   OPTION_ID=$(echo "$FIELDS" | jq -r '.fields[] | select(.name=="Status") | .options[] | select(.name=="In review") | .id')
    ITEM_ID=$(gh project item-list "$PROJECT_NUMBER" --owner "$OWNER" --format json | jq -r '.items[] | select(.content.number==<issue-number>) | .id')
-   gh project item-edit --id "$ITEM_ID" --project-id "$PROJECT_ID" --field-id "$FIELD_ID" --single-select-option-id "$OPTION_ID"
+   gh project item-edit --id "$ITEM_ID" --project-id "$PROJECT_ID" --field-id "$FIELD_ID" --single-select-option-id "$IN_REVIEW_OPTION_ID"
    ```
 
 4. **Inform the user**: "Implementation complete. The issue has been documented and labeled for QA. You can now run `/qa <issue-link>` to perform quality assurance."
