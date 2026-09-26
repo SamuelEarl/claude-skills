@@ -172,14 +172,13 @@ gh project link <number> --owner <owner> --repo <owner>/<repo>
 
 GitHub Projects v2 stores columns as options on the built-in Status single-select field. The default options are "Todo", "In Progress", and "Done"; replace them with the confirmed column list.
 
-First, get the project's node ID and the Status field's node ID:
+First, get the Status field's node ID:
 
 ```
 gh api graphql -f query='
   query($owner: String!, $number: Int!) {
     user(login: $owner) {
       projectV2(number: $number) {
-        id
         fields(first: 20) {
           nodes {
             ... on ProjectV2SingleSelectField {
@@ -195,31 +194,24 @@ gh api graphql -f query='
 ' -f owner=<owner> -F number=<number>
 ```
 
-If the owner is an org, replace `user` with `organization` in the query.
+If the owner is an org, replace `user` with `organization` in the query. Note the `id` of the `Status` field.
 
-Delete each existing option:
+Replace all options in one call — GitHub has no `deleteProjectV2FieldOption` mutation. Instead, pass the full list of desired columns to `updateProjectV2Field`; it overwrites all existing options.
 
-```
-gh api graphql -f query='
-  mutation($projectId: ID!, $fieldId: ID!, $optionId: String!) {
-    deleteProjectV2FieldOption(input: {
-      projectId: $projectId
-      fieldId: $fieldId
-      optionId: $optionId
-    }) { deletedOptionId }
-  }
-' -f projectId=<project-node-id> -f fieldId=<status-field-id> -f optionId=<option-id>
-```
-
-Add each new column in order:
+Build the inline mutation with the confirmed column names. Assign a `color` value from: `GRAY`, `BLUE`, `GREEN`, `YELLOW`, `ORANGE`, `RED`, `PINK`, `PURPLE`. Set `description` to `""` unless the user gave one. Do not include `id` — omitting it creates fresh options.
 
 ```
 gh api graphql -f query='
-  mutation($projectId: ID!, $fieldId: ID!, $name: String!) {
-    createProjectV2FieldOption(input: {
-      projectId: $projectId
-      fieldId: $fieldId
-      name: $name
+  mutation {
+    updateProjectV2Field(input: {
+      fieldId: "<status-field-id>"
+      singleSelectOptions: [
+        {name: "Backlog",     color: GRAY,   description: ""}
+        {name: "Ready",       color: BLUE,   description: ""}
+        {name: "In progress", color: YELLOW, description: ""}
+        {name: "In review",   color: ORANGE, description: ""}
+        {name: "Done",        color: GREEN,  description: ""}
+      ]
     }) {
       projectV2Field {
         ... on ProjectV2SingleSelectField {
@@ -228,10 +220,10 @@ gh api graphql -f query='
       }
     }
   }
-' -f projectId=<project-node-id> -f fieldId=<status-field-id> -f name="<column-name>"
+'
 ```
 
-Derive the column list from the unique values in the Column column of `docs/agents/KANBAN_BOARD.md` (preserving order of first appearance).
+Replace the example options with the confirmed column list derived from the unique values in the Column column of `docs/agents/KANBAN_BOARD.md` (preserving order of first appearance). The response's `options` array gives the GitHub-generated IDs for each column — use them in step 5e.
 
 **5e. Update `docs/agents/issue-tracker.md`**
 
