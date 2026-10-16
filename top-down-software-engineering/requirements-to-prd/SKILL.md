@@ -25,8 +25,9 @@ Check with the user that these seams and the UI → API → DB layering match th
    - `PROJECT_NUMBER` — from the `## Project board` section, e.g. `(#42)`
    - `OWNER` — from the git remote: `git remote get-url origin | sed -n 's#.*github.com[:/]\([^/]*\)/.*#\1#p'`
    - `READY_OPTION_ID` — from the `## Label to column mapping` table, the Status option ID on the `status:ready-to-create-issues` row
+   - `BACKLOG_OPTION_ID` — from the `## Label to column mapping` table, the Status option ID on the `status:needs-triage` row
 
-   If `READY_OPTION_ID` is empty, `setup-ai-skills` did not complete successfully. Stop and tell the user to re-run `/setup-ai-skills`.
+   If `READY_OPTION_ID` or `BACKLOG_OPTION_ID` is empty, `setup-ai-skills` did not complete successfully. Stop and tell the user to re-run `/setup-ai-skills`.
 
    Then fetch the project node ID and Status field ID via GraphQL (these are not cached):
 
@@ -61,8 +62,13 @@ Check with the user that these seams and the UI → API → DB layering match th
 
 5. Identify all items from the conversation and PRD context that should be handled as future feature enhancements (items that are related but out of scope for the current PRD). For each future feature enhancement:
    - Create a GitHub issue with a clear title and description
-   - Apply the `category:enhancement` label
    - Reference the main PRD issue in the description for traceability
+   - Add labels: `gh issue edit <issue-number> --add-label "category:enhancement,status:needs-triage"`
+   - Move to the "Backlog" column with `BACKLOG_OPTION_ID` from step 3:
+     ```bash
+     ITEM_ID=$(gh project item-list "$PROJECT_NUMBER" --owner "$OWNER" --format json | jq -r '.items[] | select(.content.number==<issue-number>) | .id')
+     gh project item-edit --id "$ITEM_ID" --project-id "$PROJECT_ID" --field-id "$FIELD_ID" --single-select-option-id "$BACKLOG_OPTION_ID"
+     ```
 
 <prd-template>
 
