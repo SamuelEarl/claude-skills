@@ -133,5 +133,3 @@ Files changed during implementation:
    ```
 
 4. **Inform the user**: "Implementation complete. The issue has been documented and labeled for QA. You can now run `/qa <issue-link>` to perform quality assurance."
-
-Commit your work to the current branch.
