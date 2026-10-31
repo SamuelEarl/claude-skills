@@ -1,6 +1,6 @@
 ---
 name: compact-summarization-instructions
-description: Generate summarization insturctions that will preserve the important points of your conversation history.
+description: Generate summarization instructions that will preserve the important points of your conversation history.
 disable-model-invocation: true
 ---
 
