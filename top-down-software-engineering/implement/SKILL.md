@@ -80,9 +80,11 @@ Before beginning implementation:
    gh issue edit <issue-number> --add-label "status:in-progress"
    ```
 
-2. **Move to "In progress" column**. The Status field is **single-select**, so `--text` does not work — use `--single-select-option-id` with `IN_PROGRESS_OPTION_ID` from `docs/agents/issue-tracker.md`. The item id cannot be read from `gh issue view`; look it up on the board by issue number:
+2. **Move to "In progress" column**. The Status field is **single-select**, so `--text` does not work — use `--single-select-option-id` with `IN_PROGRESS_OPTION_ID` from `docs/agents/issue-tracker.md`. Get the item ID with `gh project item-add`: it adds the issue to the board if it is missing and returns its item ID either way (`gh project item-list` only returns 30 items, so do not use it). If `ITEM_ID` is empty, stop and tell the user. Do not carry on silently:
    ```bash
-   ITEM_ID=$(gh project item-list "$PROJECT_NUMBER" --owner "$OWNER" --format json | jq -r '.items[] | select(.content.number==<issue-number>) | .id')
+   ITEM_ID=$(gh project item-add "$PROJECT_NUMBER" --owner "$OWNER" \
+     --url "https://github.com/$OWNER/<repo>/issues/<issue-number>" --format json --jq '.id')
+   if [ -z "$ITEM_ID" ]; then echo "Failed to add issue #<issue-number> to the project board"; exit 1; fi
    gh project item-edit --id "$ITEM_ID" --project-id "$PROJECT_ID" --field-id "$FIELD_ID" --single-select-option-id "$IN_PROGRESS_OPTION_ID"
    ```
 
@@ -128,7 +130,9 @@ Files changed during implementation:
 
 3. **Move to "In review" column** using `IN_REVIEW_OPTION_ID` from `docs/agents/issue-tracker.md`. The Status field is **single-select**, so `--text` does not work — use `--single-select-option-id`. Look up the item id by issue number:
    ```bash
-   ITEM_ID=$(gh project item-list "$PROJECT_NUMBER" --owner "$OWNER" --format json | jq -r '.items[] | select(.content.number==<issue-number>) | .id')
+   ITEM_ID=$(gh project item-add "$PROJECT_NUMBER" --owner "$OWNER" \
+     --url "https://github.com/$OWNER/<repo>/issues/<issue-number>" --format json --jq '.id')
+   if [ -z "$ITEM_ID" ]; then echo "Failed to add issue #<issue-number> to the project board"; exit 1; fi
    gh project item-edit --id "$ITEM_ID" --project-id "$PROJECT_ID" --field-id "$FIELD_ID" --single-select-option-id "$IN_REVIEW_OPTION_ID"
    ```
 

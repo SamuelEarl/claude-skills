@@ -325,7 +325,9 @@ If user selects "Close the issue as complete":
    gh issue edit <issue-number> --add-label "status:complete"
 
    # Move to Done column using COMPLETE_OPTION_ID from docs/agents/issue-tracker.md
-   ITEM_ID=$(gh project item-list "$PROJECT_NUMBER" --owner "$OWNER" --format json | jq -r '.items[] | select(.content.number==<issue-number>) | .id')
+   ITEM_ID=$(gh project item-add "$PROJECT_NUMBER" --owner "$OWNER" \
+     --url "https://github.com/$OWNER/<repo>/issues/<issue-number>" --format json --jq '.id')
+   if [ -z "$ITEM_ID" ]; then echo "Failed to add issue #<issue-number> to the project board"; exit 1; fi
    gh project item-edit --id "$ITEM_ID" --project-id "$PROJECT_ID" --field-id "$FIELD_ID" --single-select-option-id "$COMPLETE_OPTION_ID"
 
    # Close issue
@@ -356,7 +358,9 @@ If user selects "Create follow-up issues":
    - Move to the project board:
      ```bash
      TRIAGE_OPTION_ID=<Status option ID for status:needs-triage from docs/agents/issue-tracker.md>
-     ITEM_ID=$(gh project item-list "$PROJECT_NUMBER" --owner "$OWNER" --format json | jq -r '.items[] | select(.content.number==<new-issue-number>) | .id')
+     ITEM_ID=$(gh project item-add "$PROJECT_NUMBER" --owner "$OWNER" \
+       --url "https://github.com/$OWNER/<repo>/issues/<new-issue-number>" --format json --jq '.id')
+     if [ -z "$ITEM_ID" ]; then echo "Failed to add issue #<new-issue-number> to the project board"; exit 1; fi
      gh project item-edit --id "$ITEM_ID" --project-id "$PROJECT_ID" --field-id "$FIELD_ID" --single-select-option-id "$TRIAGE_OPTION_ID"
      ```
 
