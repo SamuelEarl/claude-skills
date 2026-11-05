@@ -9,7 +9,7 @@ disable-model-invocation: true
 
 This skill takes a REQUIREMENTS_CLARIFICATION_SUMMARY.md file, the current conversation context, and codebase understanding and produces a PRD. Do NOT interview the user. just synthesize what you already know.
 
-Before proceeding, check that `docs/agents/issue-tracker.md` exists. If it does not, stop and tell the user to run `/setup-ai-skills` first.
+Before proceeding, check that `docs/agents/ISSUE-TRACKER.md` exists. If it does not, stop and tell the user to run `/setup-ai-skills` first.
 
 ## Process
 
@@ -21,7 +21,7 @@ Before proceeding, check that `docs/agents/issue-tracker.md` exists. If it does 
 
 Check with the user that these seams and the UI → API → DB layering match their expectations.
 
-3. Read `docs/agents/issue-tracker.md` and extract:
+3. Read `docs/agents/ISSUE-TRACKER.md` and extract:
    - `PROJECT_NUMBER` — from the `## Project board` section, e.g. `(#42)`
    - `OWNER` — from the git remote: `git remote get-url origin | sed -n 's#.*github.com[:/]\([^/]*\)/.*#\1#p'`
    - `READY_OPTION_ID` — from the `## Label to column mapping` table, the Status option ID on the `status:ready-to-create-issues` row
@@ -54,7 +54,7 @@ Check with the user that these seams and the UI → API → DB layering match th
 
 4. Write the PRD using the template below, then publish it to the project issue tracker. Apply the `category:prd` and `status:ready-to-create-issues` labels, then move to the project board:
    - Add labels: `gh issue edit <issue-number> --add-label "category:prd,status:ready-to-create-issues"`
-   - Move to "Ready" column. The Status field is **single-select**, so `--text` does not work — use `--single-select-option-id` with `READY_OPTION_ID` from `docs/agents/issue-tracker.md`. The item ID cannot be read from `gh issue view`; look it up on the board by issue number:
+   - Move to "Ready" column. The Status field is **single-select**, so `--text` does not work — use `--single-select-option-id` with `READY_OPTION_ID` from `docs/agents/ISSUE-TRACKER.md`. The item ID cannot be read from `gh issue view`; look it up on the board by issue number:
      ```bash
      ITEM_ID=$(gh project item-list "$PROJECT_NUMBER" --owner "$OWNER" --format json | jq -r '.items[] | select(.content.number==<issue-number>) | .id')
      gh project item-edit --id "$ITEM_ID" --project-id "$PROJECT_ID" --field-id "$FIELD_ID" --single-select-option-id "$READY_OPTION_ID"
