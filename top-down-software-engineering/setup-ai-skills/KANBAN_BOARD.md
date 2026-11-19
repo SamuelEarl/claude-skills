@@ -29,5 +29,5 @@ These labels change as the state of the issue changes and are tied to the column
 | status:ready-for-human        | #097110 | Issue is ready to be implemented by a human | Ready |
 | status:in-progress            | #6495ed | Issue is currently being worked on | In progress |
 | status:in-review              | #fbca04 | Issue needs to go through QA before it can be marked Done. | In review |
-| status:no-action              | #620783 | No action will be taken | Done |
+| status:no-action              | #444444 | No action will be taken | Done |
 | status:complete               | #620783 | Issue is complete | Done |
